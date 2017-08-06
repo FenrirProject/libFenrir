@@ -4,9 +4,6 @@
 [submodule "external/debug_assert"]
 	path = external/debug_assert
 	url = https://github.com/foonathan/debug_assert.git
-[submodule "external/gsl"]
-	path = external/gsl
-	url = https://github.com/Microsoft/GSL.git
 [submodule "external/libsodium"]
 	path = external/libsodium
 	url = https://github.com/jedisct1/libsodium.git
@@ -14,3 +11,7 @@
 [submodule "external/unbound"]
 	path = external/unbound
 	url = https://github.com/NLnetLabs/unbound.git
+[submodule "external/gsl"]
+	path = external/gsl
+	url = https://github.com/djarek/GSL.git
+	branch = no_exception_support
