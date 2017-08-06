@@ -27,6 +27,7 @@
 #include "Fenrir/v1/net/Connection.hpp"
 #include "Fenrir/v1/net/Socket.hpp"
 #include "Fenrir/v1/rate/RR-RR.hpp"
+#include "Fenrir/v1/util/Shared_Lock.ipp"
 #include <type_safe/optional.hpp>
 
 namespace Fenrir__v1 {

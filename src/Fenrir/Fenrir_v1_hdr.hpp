@@ -37,6 +37,7 @@
 #include "Fenrir/v1/net/Link.ipp"
 #include "Fenrir/v1/net/Handshake.ipp"
 #include "Fenrir/v1/rate/Rate.ipp"
+#include "Fenrir/v1/resolve/DNSSEC.ipp"
 
 #include "Fenrir/Fenrir_v1.hpp"
 

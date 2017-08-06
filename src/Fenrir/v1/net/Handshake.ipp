@@ -21,8 +21,8 @@
 #pragma once
 
 #include "Fenrir/v1/common.hpp"
-#include "Fenrir/v1/util/Shared_Lock.hpp"
-#include "Fenrir/v1/plugin/Loader.hpp"
+#include "Fenrir/v1/util/Shared_Lock.ipp"
+#include "Fenrir/v1/plugin/Loader.ipp"
 #include "Fenrir/v1/Handler.hpp"
 #include "Fenrir/v1/net/Handshake.hpp"
 #include "Fenrir/v1/net/Connection.hpp"

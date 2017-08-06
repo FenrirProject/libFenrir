@@ -29,4 +29,5 @@
 #include "Fenrir/v1/plugin/Native.hpp"
 #include "Fenrir/v1/rate/Rate.hpp"
 #include "Fenrir/v1/util/Shared_Lock.hpp"
+#include "Fenrir/v1/util/Z85.hpp"
 

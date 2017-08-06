@@ -22,6 +22,7 @@
 
 #include "Fenrir/v1/common.hpp"
 #include "Fenrir/v1/data/Storage_Raw.hpp"
+#include "Fenrir/v1/data/control/Control.ipp"
 #include "Fenrir/v1/event/Events_all.hpp"
 #include "Fenrir/v1/event/Loop.hpp"
 #include "Fenrir/v1/Handler.hpp"

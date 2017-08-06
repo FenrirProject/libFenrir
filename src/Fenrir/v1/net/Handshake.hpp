@@ -28,7 +28,7 @@
 #include "Fenrir/v1/event/Events_all.hpp"
 #include "Fenrir/v1/net/Handshake_ID.hpp"
 #include "Fenrir/v1/net/Link_defs.hpp"
-#include "Fenrir/v1/plugin/Loader.hpp"
+#include "Fenrir/v1/plugin/Loader.ipp"
 #include "Fenrir/v1/util/Shared_Lock.hpp"
 #include <deque>
 

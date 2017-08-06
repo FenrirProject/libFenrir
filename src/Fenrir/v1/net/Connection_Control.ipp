@@ -21,6 +21,7 @@
 #pragma once
 
 #include "Fenrir/v1/common.hpp"
+#include "Fenrir/v1/data/control/Control.ipp"
 #include "Fenrir/v1/net/Connection.hpp"
 
 namespace Fenrir__v1 {

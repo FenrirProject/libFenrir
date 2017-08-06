@@ -269,6 +269,7 @@ SET(HEADERS	src/Fenrir/v1/API/Report.hpp
             src/Fenrir/v1/rate/Rate.ipp
             src/Fenrir/v1/rate/RR-RR.hpp
             src/Fenrir/v1/resolve/DNSSEC.hpp
+            src/Fenrir/v1/resolve/DNSSEC.ipp
             src/Fenrir/v1/resolve/Resolver.hpp
             src/Fenrir/v1/service/Service.hpp
             src/Fenrir/v1/service/Service_ID.hpp
