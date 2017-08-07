@@ -23,7 +23,7 @@
 #include "Fenrir/v1/auth/Auth.hpp"
 #include "Fenrir/v1/common.hpp"
 #include "Fenrir/v1/crypto/Crypto.hpp"
-#include "Fenrir/v1/data/Error_Correction.hpp"
+#include "Fenrir/v1/recover/Error_Correction.hpp"
 #include "Fenrir/v1/util/Shared_Lock.hpp"
 #include "Fenrir/v1/plugin/Lib.hpp"
 #include "Fenrir/v1/plugin/Loader.hpp"

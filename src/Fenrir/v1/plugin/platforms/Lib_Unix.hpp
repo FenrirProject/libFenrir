@@ -44,7 +44,7 @@ constexpr uint32_t NATIVE_HMAC = 1;
 constexpr uint32_t NATIVE_AUTH = 1;
 constexpr uint32_t NATIVE_RATE = 0;
 constexpr uint32_t NATIVE_RESOLV = 1;
-constexpr uint32_t NATIVE_ECC = 0;
+constexpr uint32_t NATIVE_ECC = 1;
 constexpr uint32_t NATIVE_FEC = 0;
 
 

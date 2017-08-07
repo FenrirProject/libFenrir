@@ -78,14 +78,28 @@ Conn0_C_INIT::Conn0_C_INIT (const gsl::span<uint8_t> raw)
                                         raw.subspan (static_cast<ssize_t> (
                                                 supported_offset +
                                                 _supported_crypt.raw_size())))),
+        _supported_ecc (Span_Overlay<Recover::ECC::ID>::mk_overlay(
+                            raw.subspan (static_cast<ssize_t> (
+                                                supported_offset +
+                                                _supported_crypt.raw_size() +
+                                                _supported_hmac.raw_size())))),
         _supported_key (Span_Overlay<Crypto::Key::ID>::mk_overlay(
                             raw.subspan (static_cast<ssize_t> (
-                                                 supported_offset +
-                                                 _supported_crypt.raw_size() +
-                                                 _supported_hmac.raw_size()))))
+                                                supported_offset +
+                                                _supported_crypt.raw_size() +
+                                                _supported_hmac.raw_size() +
+                                                _supported_ecc.raw_size())))),
+        _supported_kdf (Span_Overlay<Crypto::KDF::ID>::mk_overlay(
+                            raw.subspan (static_cast<ssize_t> (
+                                                supported_offset +
+                                                _supported_crypt.raw_size() +
+                                                _supported_hmac.raw_size() +
+                                                _supported_ecc.raw_size() +
+                                                _supported_key.raw_size()))))
 {
     if (_raw.size() < min_data_len || !_supported_crypt ||
-                                        !_supported_hmac || !_supported_key) {
+                                        !_supported_hmac || !_supported_ecc ||
+                                        !_supported_key || !_supported_kdf) {
         w->_version = Fenrir_Version (0);
         return;
     }
@@ -95,7 +109,9 @@ Conn0_C_INIT::Conn0_C_INIT (gsl::span<uint8_t> raw,
                     Random *const rnd, const Crypto::Key::Serial key_id,
                     const std::vector<Crypto::Encryption::ID>&supported_crypt,
                     const std::vector<Crypto::Hmac::ID> &supported_hmac,
-                    const std::vector<Crypto::Key::ID> &supported_key)
+                    const std::vector<Recover::ECC::ID> &supported_ecc,
+                    const std::vector<Crypto::Key::ID> &supported_key,
+                    const std::vector<Crypto::KDF::ID> &supported_kdf)
     : Conn0 (raw, Conn0_Type::C_INIT, Fenrir_Version (1)),
         r (reinterpret_cast<struct data*>(_raw.data())),
         w (reinterpret_cast<struct data*>(_raw.data())),
@@ -106,15 +122,31 @@ Conn0_C_INIT::Conn0_C_INIT (gsl::span<uint8_t> raw,
                                                 supported_offset +
                                                 _supported_crypt.raw_size())),
                                                             supported_hmac)),
-        _supported_key (Span_Overlay<Crypto::Key::ID>::mk_overlay(
+        _supported_ecc (Span_Overlay<Recover::ECC::ID>::mk_overlay(
                                         _raw.subspan (static_cast<ssize_t> (
                                                 supported_offset +
                                                 _supported_crypt.raw_size() +
                                                 _supported_hmac.raw_size())),
-                                                                supported_key))
+                                                                supported_ecc)),
+        _supported_key (Span_Overlay<Crypto::Key::ID>::mk_overlay(
+                                        _raw.subspan (static_cast<ssize_t> (
+                                                supported_offset +
+                                                _supported_crypt.raw_size() +
+                                                _supported_hmac.raw_size() +
+                                                _supported_ecc.raw_size())),
+                                                                supported_key)),
+        _supported_kdf (Span_Overlay<Crypto::KDF::ID>::mk_overlay(
+                                        _raw.subspan (static_cast<ssize_t> (
+                                                supported_offset +
+                                                _supported_crypt.raw_size() +
+                                                _supported_hmac.raw_size() +
+                                                _supported_ecc.raw_size() +
+                                                _supported_key.raw_size())),
+                                                                supported_kdf))
 {
     if (_raw.size() < min_data_len || !_supported_crypt ||
-                                        !_supported_hmac || !_supported_key) {
+                                        !_supported_hmac || !_supported_ecc ||
+                                        !_supported_key || !_supported_kdf) {
         w->_version = Fenrir_Version (0);
         return;
     }
@@ -125,7 +157,7 @@ Conn0_C_INIT::Conn0_C_INIT (gsl::span<uint8_t> raw,
 constexpr uint16_t Conn0_C_INIT::min_size()
 {
     return Conn0::min_size() + sizeof(Crypto::Key::Serial) + sizeof(Nonce) +
-                                                        sizeof(uint16_t) * 3;
+                                                        sizeof(uint16_t) * 5;
 }
 
 /////////////////
@@ -158,7 +190,9 @@ Conn0_S_COOKIE::Conn0_S_COOKIE (gsl::span<uint8_t> raw)
 Conn0_S_COOKIE::Conn0_S_COOKIE (gsl::span<uint8_t> raw,
                             const Crypto::Encryption::ID selected_crypt,
                             const Crypto::Hmac::ID selected_hmac,
+                            const Recover::ECC::ID selected_ecc,
                             const Crypto::Key::ID selected_key,
+                            const Crypto::KDF::ID selected_kdf,
                             const int64_t timestamp,
                             const std::vector<Crypto::Auth::ID> &supported_auth,
                             const uint16_t signature_length)
@@ -183,7 +217,9 @@ Conn0_S_COOKIE::Conn0_S_COOKIE (gsl::span<uint8_t> raw,
     }
     w->_selected_crypt = selected_crypt;
     w->_selected_hmac  = selected_hmac;
+    w->_selected_ecc   = selected_ecc;
     w->_selected_key   = selected_key;
+    w->_selected_kdf   = selected_kdf;
     w->_timestamp = timestamp;
 }
 
@@ -238,7 +274,9 @@ Conn0_C_COOKIE::Conn0_C_COOKIE (gsl::span<uint8_t> raw,
                                     const Crypto::Key::Serial pubkey_id,
                                     const Crypto::Encryption::ID selected_crypt,
                                     const Crypto::Hmac::ID selected_hmac,
+                                    const Recover::ECC::ID selected_ecc,
                                     const Crypto::Key::ID selected_key,
+                                    const Crypto::KDF::ID selected_kdf,
                                     const int64_t timestamp,
                                     Random *const rnd,
                                     const uint16_t cookie_len,
@@ -270,7 +308,9 @@ Conn0_C_COOKIE::Conn0_C_COOKIE (gsl::span<uint8_t> raw,
     w->_key_id = pubkey_id;
     w->_selected_crypt = selected_crypt;
     w->_selected_hmac  = selected_hmac;
+    w->_selected_ecc   = selected_ecc;
     w->_selected_key   = selected_key;
+    w->_selected_kdf   = selected_kdf;
     w->_timestamp = timestamp;
     w->_nonce = rnd->uniform<Nonce>();
 }

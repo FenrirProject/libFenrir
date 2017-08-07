@@ -76,7 +76,13 @@ FENRIR_INLINE Connection::Connection (const Role role, const User_ID user,
                                         const Packet::Alignment_Byte read_al,
                                         const Packet::Alignment_Byte write_al,
                                         const uint8_t max_read_padding,
-                                        const uint8_t max_write_padding)
+                                        const uint8_t max_write_padding,
+                                  std::shared_ptr<Crypto::Encryption> enc_send,
+                                  std::shared_ptr<Crypto::Hmac> hmac_send,
+                                  std::shared_ptr<Recover::ECC> ecc_send,
+                                  std::shared_ptr<Crypto::Encryption> enc_recv,
+                                  std::shared_ptr<Crypto::Hmac> hmac_recv,
+                                  std::shared_ptr<Recover::ECC> ecc_recv)
     : _read_connection_id (read), _write_connection_id (write),
                             _user_id (user),
                             _rel_read_control_stream (read_control_stream),
@@ -92,7 +98,13 @@ FENRIR_INLINE Connection::Connection (const Role role, const User_ID user,
                             _read_al (read_al), _write_al (write_al),
                             _max_read_padding (max_read_padding),
                             _max_write_padding (max_write_padding),
-                            _role (role), _loop (loop), _handler (handler)
+                            _role (role), _loop (loop), _handler (handler),
+                            _enc_send (std::move(enc_send)),
+                            _hmac_send (std::move(hmac_send)),
+                            _ecc_send (std::move(ecc_send)),
+                            _enc_recv (std::move(enc_recv)),
+                            _hmac_recv (std::move(hmac_recv)),
+                            _ecc_recv (std::move(ecc_recv))
 {
     _max_write_padding = 8;
     auto rel_st_in = std::make_shared<Storage_Raw> ();
@@ -275,7 +287,8 @@ FENRIR_INLINE Impl::Error Connection::del_stream_in (const Stream_ID id)
 FENRIR_INLINE void Connection::recv (Packet &pkt)
 {
     gsl::span<uint8_t> raw_pkt;
-    if (_ecc->correct (pkt.data_no_id(), raw_pkt) == Recover::ECC::Result::ERR){
+    if (_ecc_recv->correct (pkt.data_no_id(), raw_pkt)
+                                                == Recover::ECC::Result::ERR) {
         return;
     }
     if (!_hmac_recv->is_valid (raw_pkt, raw_pkt))
@@ -365,9 +378,11 @@ FENRIR_INLINE std::unique_ptr<Packet> Connection::update_source (
     const size_t total_size = PKT_MINLEN + msg_size + total_overhead();
     auto activation_pkt = std::make_unique<Packet> (
                                         std::vector<uint8_t> (total_size, 0));
+    // HACK: using the random header to offset stream (later overwritten)
     activation_pkt->set_header (_write_connection_id,
                             static_cast<uint8_t> (_enc_send->bytes_header() +
-                                                  _enc_send->bytes_header()),
+                                                  _hmac_send->bytes_header() +
+                                                  _ecc_send->bytes_header()),
                                                                         &_rnd);
     // use reserve_data (size) on the unrel_control_stream
     // TODO: we should be able to do this stateless. easy enough:
@@ -392,11 +407,13 @@ FENRIR_INLINE std::unique_ptr<Packet> Connection::update_source (
                                     _incoming.rbegin()->_activation.begin());
 
     activation_pkt->set_header (_write_connection_id, 0, &_rnd);
+    // FIXME: wrong start/end of encrypt section
+    gsl::span<uint8_t> sec_data {activation_pkt->raw};
     if (_enc_send->encrypt (activation_pkt->raw) != Error::NONE)
         return nullptr;
     if (_hmac_send->add_hmac (activation_pkt->raw) != Error::NONE)
         return nullptr;
-    if (_ecc->add_ecc (activation_pkt->raw) != Error::NONE)
+    if (_ecc_send->add_ecc (activation_pkt->raw) != Error::NONE)
         return nullptr;
     return activation_pkt;
 }
@@ -521,7 +538,7 @@ FENRIR_INLINE type_safe::optional<std::tuple<Link_ID,
 FENRIR_INLINE uint32_t Connection::total_overhead() const
 {
     return _enc_send->bytes_overhead() + _hmac_send->bytes_overhead() +
-                                                        _ecc->get_overhead();
+                                                    _ecc_send->bytes_overhead();
 }
 
 FENRIR_INLINE uint32_t Connection::mtu (const Link_ID from, const Link_ID to)
@@ -558,7 +575,7 @@ FENRIR_INLINE Error Connection::add_data (Packet_NN pkt, const uint32_t mtu)
     std::unique_lock<std::mutex> lock (_mtx);
     auto bytes_left = mtu - (_enc_send->bytes_overhead() +
                                                 _hmac_send->bytes_overhead() +
-                                                        _ecc->get_overhead());
+                                                _ecc_send->bytes_overhead());
     // get first stream after "_last_out"
     auto it = std::lower_bound (_streams_out.begin(), _streams_out.end(),
                             _last_out,
@@ -613,6 +630,7 @@ FENRIR_INLINE Error Connection::add_security (Packet_NN pkt)
     uint8_t *start = pkt.modify().get()->raw.data() + sizeof(Conn_ID);
     uint8_t *end = start + pkt.modify().get()->raw.size();
     auto enc_span = gsl::span<uint8_t> (start, end);
+    // FIXME: wrong start/end of encrypt/hmac section
     auto err = _enc_send->encrypt (enc_span);
     if (err != Impl::Error::NONE)
         return err;
@@ -621,7 +639,7 @@ FENRIR_INLINE Error Connection::add_security (Packet_NN pkt)
     err = _hmac_send->add_hmac (span);
     if (err != Impl::Error::NONE)
         return err;
-    err = _ecc->add_ecc (pkt.modify().get()->raw);
+    err = _ecc_send->add_ecc (pkt.modify().get()->raw);
     if (err != Impl::Error::NONE)
         return err;
     return Error::WRONG_INPUT;

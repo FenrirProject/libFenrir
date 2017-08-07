@@ -227,7 +227,6 @@ SET(HEADERS	src/Fenrir/v1/API/Report.hpp
             src/Fenrir/v1/data/Conn0.hpp
             src/Fenrir/v1/data/Conn0.ipp
             src/Fenrir/v1/data/Device_ID.hpp
-            src/Fenrir/v1/data/Error_Correction.hpp
             src/Fenrir/v1/data/IP.hpp
             src/Fenrir/v1/data/packet/Packet.hpp
             src/Fenrir/v1/data/packet/Stream.hpp
@@ -268,6 +267,8 @@ SET(HEADERS	src/Fenrir/v1/API/Report.hpp
             src/Fenrir/v1/rate/Rate.hpp
             src/Fenrir/v1/rate/Rate.ipp
             src/Fenrir/v1/rate/RR-RR.hpp
+            src/Fenrir/v1/recover/Error_Correction.hpp
+            src/Fenrir/v1/recover/ECC_NULL.hpp
             src/Fenrir/v1/resolve/DNSSEC.hpp
             src/Fenrir/v1/resolve/DNSSEC.ipp
             src/Fenrir/v1/resolve/Resolver.hpp

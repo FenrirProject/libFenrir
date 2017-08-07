@@ -107,8 +107,14 @@ private:
         Resolve::AS_list _auth_servers;
         std::unique_ptr<Packet> _pkt;   // last packet, used for signatures
         std::shared_ptr<Crypto::Key> _client_key;
-        std::shared_ptr<Crypto::Encryption> _enc;
-        std::shared_ptr<Crypto::Hmac> _hmac;
+        std::shared_ptr<Crypto::Encryption> _enc_read;
+        std::shared_ptr<Crypto::Hmac> _hmac_read;
+        std::shared_ptr<Recover::ECC> _ecc_read;
+        std::shared_ptr<Crypto::Encryption> _enc_write;
+        std::shared_ptr<Crypto::Hmac> _hmac_write;
+        std::shared_ptr<Recover::ECC> _ecc_write;
+        // TODO: provide KDF *and* deterministic rng for user
+        //std::shared_ptr<Crypto::KDF> _kdf;
 
         state_client (Resolve::AS_list &list, uint16_t auth_srv_idx,
                                                     uint16_t key_idx,
@@ -117,7 +123,9 @@ private:
               _auth_server_idx (auth_srv_idx), _key_idx (key_idx),
               _auth_servers (std::move(list)),
               _pkt (std::move(pkt)),
-              _client_key (nullptr), _enc (nullptr), _hmac (nullptr)
+              _client_key (nullptr), _enc_read (nullptr), _hmac_read (nullptr),
+              _ecc_read (nullptr), _enc_write (nullptr), _hmac_write (nullptr),
+              _ecc_write (nullptr)
         {}
     };
     std::vector<std::pair<Handshake::ID, state_client>> _client_active;

@@ -26,6 +26,7 @@
 #include "Fenrir/v1/crypto/Sodium.hpp"
 #include "Fenrir/v1/db/Db_Fake.hpp"
 #include "Fenrir/v1/plugin/Lib.hpp"
+#include "Fenrir/v1/recover/ECC_NULL.hpp"
 #include "Fenrir/v1/resolve/DNSSEC.hpp"
 #include <memory>
 #include <vector>
@@ -144,7 +145,12 @@ FENRIR_INLINE std::shared_ptr<Dynamic> Lib::get_shared_native (
         }
         break;
     case Dynamic_Type::ECC:
-            return nullptr; // no default algorithm yet
+        switch (id) {
+        case 1:
+            ret = std::make_shared<Recover::ECC_NULL>();
+            ret->_self = ret;
+        }
+        break;
     }
     return ret;
 }

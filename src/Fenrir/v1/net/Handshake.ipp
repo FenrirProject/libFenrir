@@ -229,10 +229,13 @@ FENRIR_INLINE std::tuple<std::unique_ptr<Packet>, Link_ID>
 
     const auto all_enc  = _load->list<Crypto::Encryption>();
     const auto all_hmac = _load->list<Crypto::Hmac>();
+    const auto all_ecc  = _load->list<Recover::ECC>();
     const auto all_key  = _load->list<Crypto::Key>();
+    const auto all_kdf  = _load->list<Crypto::KDF>();
 
     uint16_t msg_size = static_cast<uint16_t> (Conn0_C_INIT::min_size() +
-                        (all_enc.size()  + all_hmac.size()  + all_key.size()) *
+                        (all_enc.size()  + all_hmac.size()  +
+                             all_ecc.size() + all_key.size() + all_kdf.size()) *
                                                 sizeof(Crypto::Encryption::ID));
     if (msg_size < conn_init_minlen)
         msg_size = conn_init_minlen;
@@ -265,7 +268,7 @@ FENRIR_INLINE std::tuple<std::unique_ptr<Packet>, Link_ID>
     }
     Conn0_C_INIT msg (stream->data(), _rnd,
                     std::get<Crypto::Key::Serial> (auth_servers._key[key_idx]),
-                                                    all_enc, all_hmac, all_key);
+                                all_enc, all_hmac, all_ecc, all_key, all_kdf);
     if (!msg)
         return {nullptr, Link_ID {{IP(), UDP_Port{0}}}}; // FIXME: report error
     auto copy_data = pkt->raw;
@@ -345,10 +348,14 @@ FENRIR_INLINE void Handshake::answer_c_init (const Link_ID recv_from,
     const auto sel_enc = _load->choose<Crypto::Encryption> (
                                                         data._supported_crypt);
     const auto sel_hmac = _load->choose<Crypto::Hmac> (data._supported_hmac);
+    const auto sel_ecc = _load->choose<Recover::ECC> (data._supported_ecc);
     const auto sel_key = _load->choose<Crypto::Key> (data._supported_key);
+    const auto sel_kdf = _load->choose<Crypto::KDF> (data._supported_kdf);
 
+    // sel_ecc *CAN* be zero => no additional ECC on the connection
     if (sel_enc == Crypto::Encryption::ID {0} ||
-            sel_hmac == Crypto::Hmac::ID {0} || sel_key == Crypto::Key::ID {0}){
+            sel_hmac == Crypto::Hmac::ID {0} || sel_key == Crypto::Key::ID {0}||
+                                                sel_kdf == Crypto::KDF::ID {0}){
         return;
     }
 
@@ -368,8 +375,9 @@ FENRIR_INLINE void Handshake::answer_c_init (const Link_ID recv_from,
     answer->set_header (Conn_ID{0}, 0, _rnd);
     Stream *str = answer->add_stream (pkt.stream[0].id(),Stream::Fragment::FULL,
                                         pkt.stream[0].counter(), total_length);
-    auto cookie = Conn0_S_COOKIE (str->data(), sel_enc, sel_hmac, sel_key,
-                            timestamp, std::move(supported_auth), sign_length);
+    auto cookie = Conn0_S_COOKIE (str->data(), sel_enc, sel_hmac, sel_ecc,
+                                        sel_key, sel_kdf, timestamp,
+                                        std::move(supported_auth), sign_length);
     if (!cookie)
         return;
     std::vector<uint8_t> cs_tosign = cookie.client_server_data_tosign (data);
@@ -421,9 +429,15 @@ FENRIR_INLINE void Handshake::answer_s_cookie (const Link_ID recv_from,
         std::find (prev_data._supported_hmac.begin(),
                prev_data._supported_hmac.end(),
                data.r->_selected_hmac) == prev_data._supported_hmac.end() ||
+        std::find (prev_data._supported_ecc.begin(),
+               prev_data._supported_ecc.end(),
+               data.r->_selected_ecc) == prev_data._supported_ecc.end() ||
         std::find (prev_data._supported_key.begin(),
                prev_data._supported_key.end(),
-               data.r->_selected_key) == prev_data._supported_key.end()) {
+               data.r->_selected_key) == prev_data._supported_key.end() ||
+        std::find (prev_data._supported_kdf.begin(),
+               prev_data._supported_kdf.end(),
+               data.r->_selected_kdf) == prev_data._supported_kdf.end()) {
         return;
     }
 
@@ -468,7 +482,9 @@ FENRIR_INLINE void Handshake::answer_s_cookie (const Link_ID recv_from,
     auto c_cookie = Conn0_C_COOKIE (str->data(), prev_data.r->_key_id,
                                             data.r->_selected_crypt,
                                             data.r->_selected_hmac,
+                                            data.r->_selected_ecc,
                                             data.r->_selected_key,
+                                            data.r->_selected_kdf,
                                             data.r->_timestamp,
                                             _rnd,
                                             static_cast<uint16_t> (
@@ -520,6 +536,8 @@ struct FENRIR_LOCAL srv_key_format {
     Conn_ID _reserved_conn;
     Crypto::Encryption::ID _enc;
     Crypto::Hmac::ID _hmac;
+    Recover::ECC::ID _ecc;
+    Crypto::KDF::ID _kdf;
 };
 } // empty namespace
 
@@ -565,7 +583,9 @@ FENRIR_INLINE void Handshake::answer_c_cookie (const Link_ID recv_from,
     std::vector<uint8_t> test_data (Conn0_S_COOKIE::min_size(), 0);
     const Conn0_S_COOKIE test_cookie (test_data, data.r->_selected_crypt,
                                             data.r->_selected_hmac,
+                                            data.r->_selected_ecc,
                                             data.r->_selected_key,
+                                            data.r->_selected_kdf,
                                             data.r->_timestamp,
                                             std::vector<Crypto::Auth::ID>(), 0);
 
@@ -649,6 +669,8 @@ FENRIR_INLINE void Handshake::answer_c_cookie (const Link_ID recv_from,
     srv->_reserved_conn = next_free;
     srv->_enc  = data.r->_selected_crypt;
     srv->_hmac = data.r->_selected_hmac;
+    srv->_ecc  = data.r->_selected_ecc;
+    srv->_kdf  = data.r->_selected_kdf;
 
     _srv_secret->encrypt (s_keys._srv_enc);
 
@@ -714,7 +736,7 @@ FENRIR_INLINE void Handshake::answer_s_keys (const Link_ID recv_from,
 
     lock.early_unlock();
 
-    auto kdf = _load->get_shared<Crypto::KDF> (Crypto::KDF::ID {1});
+    auto kdf = _load->get_shared<Crypto::KDF> (prev_data.r->_selected_kdf);
     if (kdf == nullptr || !kdf->init (key))
         return;
 
@@ -722,17 +744,40 @@ FENRIR_INLINE void Handshake::answer_s_keys (const Link_ID recv_from,
     constexpr std::array<char, 8> context {{ "FENRIR_" }};
     std::array<uint8_t, 64> tmp_key;
 
-    auto enc = _load->get_shared<Crypto::Encryption> (
+    auto enc_write = _load->get_shared<Crypto::Encryption> (
                                                 prev_data.r->_selected_crypt);
-    auto hmac = _load->get_shared<Crypto::Hmac> (prev_data.r->_selected_hmac);
-    kdf->get (1, context, tmp_key);
-    enc->set_key (tmp_key);
-    kdf->get (2, context, tmp_key);
-    hmac->set_key (tmp_key);
-    if (prev_data.r->_selected_hmac == Crypto::Hmac::ID {0}) {
-        if (!enc->is_authenticated())
-            return; // Connection not authenticated. Try again next time.
+    auto hmac_write = _load->get_shared<Crypto::Hmac> (
+                                                prev_data.r->_selected_hmac);
+    auto ecc_write = _load->get_shared<Recover::ECC> (
+                                                prev_data.r->_selected_ecc);
+    if (enc_write == nullptr || hmac_write == nullptr || ecc_write == nullptr)
+        return;
+    if (hmac_write->id() == Crypto::Hmac::ID{1} &&
+                                            !enc_write->is_authenticated()) {
+        return; // TODO: report eror;
     }
+    kdf->get (1, context, tmp_key);
+    enc_write->set_key (tmp_key);
+    kdf->get (2, context, tmp_key);
+    hmac_write->set_key (tmp_key);
+    kdf->get (3, context, tmp_key);
+    if (!ecc_write->init (tmp_key))
+        return;
+    auto enc_read = _load->get_shared<Crypto::Encryption> (
+                                                prev_data.r->_selected_crypt);
+    auto hmac_read = _load->get_shared<Crypto::Hmac> (
+                                                prev_data.r->_selected_hmac);
+    auto ecc_read = _load->get_shared<Recover::ECC> (
+                                                prev_data.r->_selected_ecc);
+    if (enc_read == nullptr || hmac_read == nullptr || ecc_read == nullptr)
+        return;
+    kdf->get (4, context, tmp_key);
+    enc_read->set_key (tmp_key);
+    kdf->get (5, context, tmp_key);
+    hmac_read->set_key (tmp_key);
+    kdf->get (6, context, tmp_key);
+    if (!ecc_read->init (tmp_key))
+        return;
 
     // TODO: GET STREAMS DATA
     const uint16_t streams_num = 1;
@@ -749,8 +794,9 @@ FENRIR_INLINE void Handshake::answer_s_keys (const Link_ID recv_from,
                             2 * test_user.size() +
                             test_token.size() +
                             Conn0_Auth_Data::stream_info_size (streams_num) +
-                            enc->bytes_overhead() +
-                            hmac->bytes_overhead();
+                            enc_write->bytes_overhead() +
+                            hmac_write->bytes_overhead() +
+                            ecc_write->bytes_overhead();
     uint16_t total_len = static_cast<uint16_t> (Conn0_C_AUTH::min_size() +
                                                     data._srv_enc.size() +
                                                     auth_data_len);
@@ -798,10 +844,15 @@ FENRIR_INLINE void Handshake::answer_s_keys (const Link_ID recv_from,
                                 42,42,42,42,42,42,42,42 }}};
     Username client_auth_u { test_user };
     Username client_service_u { test_user };
-    auto cleartext_data = c_auth.as_cleartext (enc->bytes_header() +
-                                                        hmac->bytes_header(),
-                                    enc->bytes_footer() + hmac->bytes_footer());
-    assert ((auth_data_len - (enc->bytes_overhead() + hmac->bytes_overhead()))
+    auto cleartext_data = c_auth.as_cleartext (enc_write->bytes_header() +
+                                                    hmac_write->bytes_header() +
+                                                    ecc_write->bytes_header(),
+                                                    enc_write->bytes_footer() +
+                                                    hmac_write->bytes_footer() +
+                                                    ecc_write->bytes_footer());
+    assert ((auth_data_len - (enc_write->bytes_overhead() +
+                                    hmac_write->bytes_overhead() +
+                                    ecc_write->bytes_overhead()))
                                         == cleartext_data.size() &&
                                             "Fenrir: Hshake c_auth size error");
     auto auth_data = Conn0_Auth_Data (cleartext_data,
@@ -833,8 +884,13 @@ FENRIR_INLINE void Handshake::answer_s_keys (const Link_ID recv_from,
     copy_pkt->add_stream (pkt.stream[0].id(),Stream::Fragment::FULL,
                                             pkt.stream[0].counter(), total_len);
 
-    enc->encrypt   (c_auth._enc_data);
-    hmac->add_hmac (c_auth._enc_data);
+    enc_write->encrypt   (c_auth.as_cleartext (hmac_write->bytes_header() +
+                                                    ecc_write->bytes_header(),
+                                                    hmac_write->bytes_footer() +
+                                                    ecc_write->bytes_footer()));
+    hmac_write->add_hmac (c_auth.as_cleartext (ecc_write->bytes_header(),
+                                                    ecc_write->bytes_footer()));
+    ecc_write->add_ecc   (c_auth._enc_data);
     Shared_Lock_Guard<Shared_Lock_Write> w_lock {Shared_Lock_NN{&_mtx}};
     // search previous packet in _active handshakes
     auto pkt_it = std::lower_bound (_client_active.begin(),_client_active.end(),
@@ -854,8 +910,12 @@ FENRIR_INLINE void Handshake::answer_s_keys (const Link_ID recv_from,
 
     std::get<state_client> (*pkt_it)._type = Conn0_Type::C_AUTH;
     std::get<state_client> (*pkt_it)._pkt = std::move(copy_pkt);
-    std::get<state_client> (*pkt_it)._enc = std::move(enc);
-    std::get<state_client> (*pkt_it)._hmac = std::move(hmac);
+    std::get<state_client> (*pkt_it)._enc_read = std::move(enc_read);
+    std::get<state_client> (*pkt_it)._hmac_read = std::move(hmac_read);
+    std::get<state_client> (*pkt_it)._ecc_read = std::move(ecc_read);
+    std::get<state_client> (*pkt_it)._enc_write = std::move(enc_write);
+    std::get<state_client> (*pkt_it)._hmac_write = std::move(hmac_write);
+    std::get<state_client> (*pkt_it)._ecc_write = std::move(ecc_write);
     std::get<state_client> (*pkt_it)._client_key = nullptr;
     w_lock.early_unlock();
 
@@ -901,7 +961,7 @@ FENRIR_INLINE void Handshake::answer_c_auth (const Link_ID recv_from,
     if (_handler->get_connection (srv->_reserved_conn) != nullptr)
         return;
 
-    auto kdf = _load->get_shared<Crypto::KDF> (Crypto::KDF::ID {1});
+    auto kdf = _load->get_shared<Crypto::KDF> (srv->_kdf);
     if (kdf == nullptr || !kdf->init (srv->_key))
         return;
 
@@ -909,22 +969,30 @@ FENRIR_INLINE void Handshake::answer_c_auth (const Link_ID recv_from,
     std::array<uint8_t, 64> tmp_key;
 
     // load encryption keys
-    auto enc = _load->get_shared<Crypto::Encryption> (srv->_enc);
-    auto hmac = _load->get_shared<Crypto::Hmac> (srv->_hmac);
+    auto enc_read = _load->get_shared<Crypto::Encryption> (srv->_enc);
+    auto hmac_read = _load->get_shared<Crypto::Hmac> (srv->_hmac);
+    auto ecc_read = _load->get_shared<Recover::ECC> (srv->_ecc);
+    if (enc_read == nullptr || hmac_read == nullptr || ecc_read == nullptr)
+        return;
+    if (hmac_read->id() == Crypto::Hmac::ID{1} && !enc_read->is_authenticated())
+        return;
     kdf->get (1, context, tmp_key);
-    enc->set_key (tmp_key);
+    enc_read->set_key (tmp_key);
     kdf->get (2, context, tmp_key);
-    hmac->set_key (tmp_key);
-    if (srv->_hmac == Crypto::Hmac::ID {0}) {
-        if (!enc->is_authenticated())
-            return; // Connection not authenticated. Try again next time.
-    }
+    hmac_read->set_key (tmp_key);
+    kdf->get (3, context, tmp_key);
+    if (!ecc_read->init (tmp_key))
+        return;
 
     // test autenticity & decrypt
-    gsl::span<uint8_t> decrypted_data;
-    if (!hmac->is_valid (data._enc_data, decrypted_data))
+    gsl::span<uint8_t> decrypted_data {data._enc_data};
+    if (ecc_read->correct (decrypted_data, decrypted_data) ==
+                                                    Recover::ECC::Result::ERR) {
         return;
-    if (enc->decrypt (decrypted_data, decrypted_data) != Impl::Error::NONE)
+    }
+    if (!hmac_read->is_valid (decrypted_data, decrypted_data))
+        return;
+    if (enc_read->decrypt (decrypted_data, decrypted_data) != Impl::Error::NONE)
         return;
 
     Conn0_Auth_Data client_auth_data (decrypted_data);
@@ -963,11 +1031,30 @@ FENRIR_INLINE void Handshake::answer_c_auth (const Link_ID recv_from,
                                         static_cast<uint32_t> (max_counter))};
     const uint8_t srv_max_padding = _rnd->uniform<uint8_t> (0, 16);
     const auto srv_alignment = Packet::Alignment_Flag::UINT8;
+    std::shared_ptr<Crypto::Encryption> enc_write;
+    std::shared_ptr<Crypto::Hmac> hmac_write;
+    std::shared_ptr<Recover::ECC> ecc_write;
     if (!auth_res._failed) {
         // TODO: Contact service, ask for the connection ID, XORed keys
         // and whatnot
 
         // allocate connection
+        enc_write = _load->get_shared<Crypto::Encryption> (srv->_enc);
+        hmac_write = _load->get_shared<Crypto::Hmac> (srv->_hmac);
+        ecc_write = _load->get_shared<Recover::ECC> (srv->_ecc);
+        if (enc_write == nullptr || hmac_write == nullptr ||
+                                                        ecc_write == nullptr) {
+            return;
+        }
+        kdf->get (4, context, tmp_key);
+        enc_write->set_key (tmp_key);
+        kdf->get (5, context, tmp_key);
+        hmac_write->set_key (tmp_key);
+        kdf->get (6, context, tmp_key);
+        if (!ecc_write->init (tmp_key))
+            return;
+
+
         auto conn = Connection::mk_shared (Role::Server,
                                             auth_res._user_id,
                                             _loop,
@@ -981,9 +1068,11 @@ FENRIR_INLINE void Handshake::answer_c_auth (const Link_ID recv_from,
                                                 client_auth_data.r->_alignment),
                                             Packet::Flag_To_Byte(srv_alignment),
                                             client_auth_data.r->_max_padding,
-                                            srv_max_padding);
+                                            srv_max_padding,
+                                            enc_write, hmac_write, ecc_write,
+                                            enc_read,  hmac_read,  ecc_read
+                                            );
         conn->add_Link_out (recv_from);
-        // FIXME: add read/write enc/hmac to the connection
 
         if (_handler->add_connection (std::move(conn)) != Error::NONE)
             return; // there already is such a connection.
@@ -992,7 +1081,7 @@ FENRIR_INLINE void Handshake::answer_c_auth (const Link_ID recv_from,
     // build answer
     const uint16_t answer_length = Conn0_Auth_Result::min_size() +
                                 Conn0_Auth_Result::stream_info_size (1) +
-                                enc->bytes_overhead() + hmac->bytes_overhead();
+                                enc_read->bytes_overhead() + hmac_read->bytes_overhead();
 
     auto answer = std::make_unique<Packet> (Conn0_S_RESULT::min_size() +
                                                     answer_length + PKT_MINLEN);
@@ -1003,8 +1092,12 @@ FENRIR_INLINE void Handshake::answer_c_auth (const Link_ID recv_from,
                                                             + answer_length);
     Conn0_S_RESULT srv_res (str->data(), answer_length);
     Conn0_Auth_Result srv_data (srv_res.as_cleartext (
-                                    enc->bytes_header() + hmac->bytes_header(),
-                                    enc->bytes_footer() - hmac->bytes_footer()),
+                                                    enc_write->bytes_header() +
+                                                    hmac_write->bytes_header() +
+                                                    ecc_write->bytes_header(),
+                                                    enc_write->bytes_footer() +
+                                                    hmac_write->bytes_footer() +
+                                                    ecc_write->bytes_footer()),
                                 srv->_reserved_conn,
                                 control_stream_start,
                                 srv_control_stream,
@@ -1027,9 +1120,19 @@ FENRIR_INLINE void Handshake::answer_c_auth (const Link_ID recv_from,
     }
 
 
-    if (enc->encrypt (srv_res._enc) != Error::NONE)
+    if (enc_write->encrypt (srv_res.as_cleartext (hmac_write->bytes_header() +
+                                                    ecc_write->bytes_header(),
+                                                  hmac_write->bytes_footer() +
+                                                    ecc_write->bytes_footer()))
+                                                                != Error::NONE){
         return; // TODO: what to do now? drop earlier connection?
-    if (hmac->add_hmac (srv_res._enc) != Error::NONE)
+    }
+    if (hmac_write->add_hmac (srv_res.as_cleartext (ecc_write->bytes_header(),
+                                                    ecc_write->bytes_footer()))
+                                                                != Error::NONE){
+        return;
+    }
+    if (ecc_write->add_ecc (srv_res._enc) != Error::NONE)
         return;
 
     return _handler->proxy_enqueue (recv_to, recv_from,
@@ -1063,16 +1166,24 @@ FENRIR_INLINE void Handshake::parse_s_result (const Link_ID recv_from,
         return; // random packet. Don't answer.
     }
 
-    std::shared_ptr<Crypto::Encryption> enc = std::get<state_client> (*it)._enc;
-    std::shared_ptr<Crypto::Hmac> hmac = std::get<state_client> (*it)._hmac;
+    auto enc_read  = std::get<state_client> (*it)._enc_read;
+    auto hmac_read = std::get<state_client> (*it)._hmac_read;
+    auto ecc_read  = std::get<state_client> (*it)._ecc_read;
+    auto enc_write  = std::get<state_client> (*it)._enc_write;
+    auto hmac_write = std::get<state_client> (*it)._hmac_write;
+    auto ecc_write  = std::get<state_client> (*it)._ecc_write;
 
     // save data for later, so we don't lock things too much
     Conn0_C_AUTH prev_data (std::get<state_client>(*it)._pkt->stream[0].data());
     r_lock.early_unlock();
 
     auto cleartext_client_auth = Conn0_Auth_Data (prev_data.as_cleartext (
-                        enc->bytes_header() + hmac->bytes_header(),
-                        enc->bytes_footer() + hmac->bytes_footer()));
+                                                enc_read->bytes_header() +
+                                                    hmac_read->bytes_header() +
+                                                    ecc_read->bytes_header(),
+                                                enc_read->bytes_footer() +
+                                                    hmac_read->bytes_footer() +
+                                                    ecc_read->bytes_footer()));
 
     auto client_alignment = cleartext_client_auth.r->_alignment;
     auto client_Conn_ID = cleartext_client_auth.r->_client_conn_id;
@@ -1080,14 +1191,17 @@ FENRIR_INLINE void Handshake::parse_s_result (const Link_ID recv_from,
     auto client_max_pading = cleartext_client_auth.r->_max_padding;
 
     // test hmac
-    gsl::span<uint8_t> decrypted_data;
-    if (!hmac->is_valid (data._enc, decrypted_data)) {
-        return; // trasnmission corruption or malicious packet
+    gsl::span<uint8_t> decrypted_data = data._enc;
+    if (ecc_read->correct (decrypted_data, decrypted_data) ==
+                                                    Recover::ECC::Result::ERR) {
+        return;
     }
+    if (!hmac_read->is_valid (decrypted_data, decrypted_data))
+        return; // trasnmission corruption or malicious packet
     // decrypt
-    if (enc->decrypt (decrypted_data, decrypted_data) != Error::NONE) {
+    if (enc_read->decrypt (decrypted_data, decrypted_data) != Error::NONE)
         return; // trasnmission corruption or malicious packet
-    }
+
     Shared_Lock_Guard<Shared_Lock_Write> w_lock {Shared_Lock_NN{&_mtx}};
     // Get the iterator again, it might have changed
     it = std::lower_bound (_client_active.begin(), _client_active.end(),
@@ -1123,8 +1237,14 @@ FENRIR_INLINE void Handshake::parse_s_result (const Link_ID recv_from,
                                         Packet::Flag_To_Byte (
                                                 srv_clear_data.r->_alignment),
                                         client_max_pading,
-                                        srv_clear_data.r->_max_padding);
-    // FIXME: add read/write enc/hmac to the connection
+                                        srv_clear_data.r->_max_padding,
+                                        std::move(enc_write),
+                                        std::move(hmac_write),
+                                        std::move(ecc_write),
+                                        std::move(enc_read),
+                                        std::move(hmac_read),
+                                        std::move(ecc_read)
+                                        );
 
     if (conn == nullptr) {
         // could not allocate?

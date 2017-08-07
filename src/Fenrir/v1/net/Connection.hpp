@@ -22,7 +22,7 @@
 
 #include "Fenrir/v1/common.hpp"
 #include "Fenrir/v1/data/control/Control.hpp"
-#include "Fenrir/v1/data/Error_Correction.hpp"
+#include "Fenrir/v1/recover/Error_Correction.hpp"
 #include "Fenrir/v1/data/IP.hpp"
 #include "Fenrir/v1/data/packet/Packet.hpp"
 #include "Fenrir/v1/data/Storage.hpp"
@@ -164,23 +164,30 @@ private:
     std::vector<std::pair<Stream_ID, Stream_Track_Out>> _streams_out;
     Stream_ID _last_out;
 
-    std::unique_ptr<Crypto::Encryption> _enc_send;
-    std::unique_ptr<Crypto::Hmac> _hmac_send;
-    std::unique_ptr<Crypto::Encryption> _enc_recv;
-    std::unique_ptr<Crypto::Hmac> _hmac_recv;
-    std::unique_ptr<Recover::ECC> _ecc;
+    std::shared_ptr<Crypto::Encryption> _enc_send;
+    std::shared_ptr<Crypto::Hmac> _hmac_send;
+    std::shared_ptr<Recover::ECC> _ecc_send;
+    std::shared_ptr<Crypto::Encryption> _enc_recv;
+    std::shared_ptr<Crypto::Hmac> _hmac_recv;
+    std::shared_ptr<Recover::ECC> _ecc_recv;
 
     Connection (const Role role, const User_ID user,
-                                        Event::Loop *const loop,
-                                        Handler *const _handler,
-                                        const Stream_ID read_control_stream,
-                                        const Stream_ID write_control_stream,
-                                        const Conn_ID read, const Conn_ID write,
-                                        const Counter control_window_start,
-                                        const Packet::Alignment_Byte read_al,
-                                        const Packet::Alignment_Byte write_al,
-                                        const uint8_t max_read_padding,
-                                        const uint8_t max_write_padding);
+                                Event::Loop *const loop,
+                                Handler *const _handler,
+                                const Stream_ID read_control_stream,
+                                const Stream_ID write_control_stream,
+                                const Conn_ID read, const Conn_ID write,
+                                const Counter control_window_start,
+                                const Packet::Alignment_Byte read_al,
+                                const Packet::Alignment_Byte write_al,
+                                const uint8_t max_read_padding,
+                                const uint8_t max_write_padding,
+                                std::shared_ptr<Crypto::Encryption> enc_send,
+                                std::shared_ptr<Crypto::Hmac> hmac_send,
+                                std::shared_ptr<Recover::ECC> ecc_send,
+                                std::shared_ptr<Crypto::Encryption> enc_recv,
+                                std::shared_ptr<Crypto::Hmac> hmac_recv,
+                                std::shared_ptr<Recover::ECC> ecc_recv);
     void parse_rel_control();
     void parse_unrel_control();
     void parse_control (const std::vector<uint8_t> &data);

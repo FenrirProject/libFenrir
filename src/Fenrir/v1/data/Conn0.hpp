@@ -25,6 +25,7 @@
 #include "Fenrir/v1/crypto/Crypto.hpp"
 #include "Fenrir/v1/data/Conn0_Type.hpp"
 #include "Fenrir/v1/data/Device_ID.hpp"
+#include "Fenrir/v1/recover/Error_Correction.hpp"
 #include "Fenrir/v1/data/packet/Packet.hpp"
 #include "Fenrir/v1/data/Storage_t.hpp"
 #include "Fenrir/v1/service/Service_ID.hpp"
@@ -117,7 +118,9 @@ public:
     struct data *const w;
     Span_Overlay<Crypto::Encryption::ID> _supported_crypt;
     Span_Overlay<Crypto::Hmac::ID> _supported_hmac;
+    Span_Overlay<Recover::ECC::ID> _supported_ecc;
     Span_Overlay<Crypto::Key::ID> _supported_key;
+    Span_Overlay<Crypto::KDF::ID> _supported_kdf;
 
     Conn0_C_INIT() = delete;
     Conn0_C_INIT (const Conn0_C_INIT&) = default;
@@ -129,14 +132,16 @@ public:
     Conn0_C_INIT (const gsl::span<uint8_t> raw);  // received pkt
     Conn0_C_INIT (gsl::span<uint8_t> raw,         // sent pkt
                     Random *const rnd, const Crypto::Key::Serial key_id,
-                    const std::vector<Crypto::Encryption::ID>&supported_crypt,
+                    const std::vector<Crypto::Encryption::ID> &supported_crypt,
                     const std::vector<Crypto::Hmac::ID> &supported_hmac,
-                    const std::vector<Crypto::Key::ID> &supported_key);
+                    const std::vector<Recover::ECC::ID> &supported_ecc,
+                    const std::vector<Crypto::Key::ID> &supported_key,
+                    const std::vector<Crypto::KDF::ID> &supported_kdf);
     static constexpr uint16_t min_size();
 private:
     static constexpr uint16_t supported_offset = sizeof(struct data);
     static constexpr uint16_t min_data_len = supported_offset +
-                                                        3 * sizeof(uint16_t);
+                                                        5 * sizeof(uint16_t);
 };
 
 
@@ -152,7 +157,9 @@ public:
         Conn0_Type _type;
         Crypto::Encryption::ID _selected_crypt;
         Crypto::Hmac::ID _selected_hmac;
+        Recover::ECC::ID _selected_ecc;
         Crypto::Key::ID _selected_key;
+        Crypto::KDF::ID _selected_kdf;
         int64_t _timestamp;
     };
     struct data const *const r;
@@ -172,7 +179,9 @@ public:
     Conn0_S_COOKIE (      gsl::span<uint8_t> raw,     // send pkt
                             const Crypto::Encryption::ID selected_crypt,
                             const Crypto::Hmac::ID selected_hmac,
+                            const Recover::ECC::ID selected_ecc,
                             const Crypto::Key::ID selected_key,
+                            const Crypto::KDF::ID selected_kdf,
                             const int64_t timestamp,
                             const std::vector<Crypto::Auth::ID>&supported_auth,
                             const uint16_t signature_length);
@@ -200,7 +209,9 @@ public:
         Crypto::Key::Serial _key_id;
         Crypto::Encryption::ID _selected_crypt;
         Crypto::Hmac::ID _selected_hmac;
+        Recover::ECC::ID _selected_ecc;
         Crypto::Key::ID _selected_key;
+        Crypto::KDF::ID _selected_kdf;
         int64_t _timestamp;
         Nonce _nonce;
     };
@@ -221,7 +232,9 @@ public:
                                     const Crypto::Key::Serial pubkey_id,
                                     const Crypto::Encryption::ID selected_crypt,
                                     const Crypto::Hmac::ID selected_hmac,
+                                    const Recover::ECC::ID selected_ecc,
                                     const Crypto::Key::ID selected_key,
+                                    const Crypto::KDF::ID selected_kdf,
                                     const int64_t timestamp,
                                     Random *const rnd, // for the Nonce
                                     const uint16_t cookie_len,

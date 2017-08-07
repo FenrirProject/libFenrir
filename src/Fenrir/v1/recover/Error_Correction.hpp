@@ -21,10 +21,10 @@
 #pragma once
 
 #include "Fenrir/v1/common.hpp"
-#include "Fenrir/v1/data/packet/Stream.hpp"
 #include "Fenrir/v1/plugin/Dynamic.hpp"
 #include <gsl/span>
 #include <vector>
+#include <type_safe/strong_typedef.hpp>
 
 namespace Fenrir__v1 {
 namespace Impl {
@@ -58,10 +58,11 @@ public:
     ECC& operator= (ECC &&) = default;
     virtual ~ECC () {}
 
-    virtual bool init (const std::vector<uint8_t> &pref_raw) = 0;
-    virtual std::vector<uint8_t> get_preferences() = 0;
+    virtual bool init (const gsl::span<uint8_t, 64> random) = 0;
     virtual ECC::ID get_id() const = 0;
-    virtual uint16_t get_overhead() const = 0;
+    virtual uint16_t bytes_header() const = 0;
+    virtual uint16_t bytes_footer() const = 0;
+    virtual uint16_t bytes_overhead() const = 0;
 
     virtual Result correct (const gsl::span<uint8_t> raw,
                                     gsl::span<uint8_t> &raw_no_ecc_header) = 0;
