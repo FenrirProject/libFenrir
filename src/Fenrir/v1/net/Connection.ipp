@@ -379,10 +379,13 @@ FENRIR_INLINE std::unique_ptr<Packet> Connection::update_source (
     auto activation_pkt = std::make_unique<Packet> (
                                         std::vector<uint8_t> (total_size, 0));
     // HACK: using the random header to offset stream (later overwritten)
+    assert (_hmac_send->bytes_header() + _enc_send->bytes_header() +
+                                            _ecc_send->bytes_header() < 256 &&
+                                    "Fenrir: update_source quick hack failed.");
     activation_pkt->set_header (_write_connection_id,
                             static_cast<uint8_t> (_enc_send->bytes_header() +
-                                                  _hmac_send->bytes_header() +
-                                                  _ecc_send->bytes_header()),
+                                                    _hmac_send->bytes_header() +
+                                                    _ecc_send->bytes_header()),
                                                                         &_rnd);
     // use reserve_data (size) on the unrel_control_stream
     // TODO: we should be able to do this stateless. easy enough:
@@ -408,12 +411,20 @@ FENRIR_INLINE std::unique_ptr<Packet> Connection::update_source (
 
     activation_pkt->set_header (_write_connection_id, 0, &_rnd);
     // FIXME: wrong start/end of encrypt section
-    gsl::span<uint8_t> sec_data {activation_pkt->raw};
-    if (_enc_send->encrypt (activation_pkt->raw) != Error::NONE)
+    size_t start = _hmac_send->bytes_header() + _ecc_send->bytes_header();
+    ssize_t len = static_cast<ssize_t> (activation_pkt->raw.size()) -
+                                                (_hmac_send->bytes_footer() +
+                                                    _ecc_send->bytes_footer());
+    gsl::span<uint8_t> enc_data {activation_pkt->raw.data() + start, len};
+    if (_enc_send->encrypt (enc_data) != Error::NONE)
         return nullptr;
-    if (_hmac_send->add_hmac (activation_pkt->raw) != Error::NONE)
+    start -= _hmac_send->bytes_header();
+    len += _hmac_send->bytes_footer();
+    gsl::span<uint8_t> data_with_hmac {activation_pkt->raw.data() + start, len};
+    if (_hmac_send->add_hmac (data_with_hmac) != Error::NONE)
         return nullptr;
-    if (_ecc_send->add_ecc (activation_pkt->raw) != Error::NONE)
+    gsl::span<uint8_t> data_with_ecc {activation_pkt->raw};
+    if (_ecc_send->add_ecc (data_with_ecc) != Error::NONE)
         return nullptr;
     return activation_pkt;
 }
