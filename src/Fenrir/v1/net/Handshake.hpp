@@ -113,6 +113,7 @@ private:
         std::shared_ptr<Crypto::Encryption> _enc_write;
         std::shared_ptr<Crypto::Hmac> _hmac_write;
         std::shared_ptr<Recover::ECC> _ecc_write;
+        std::shared_ptr<Crypto::KDF> _user_kdf;
         // TODO: provide KDF *and* deterministic rng for user
         //std::shared_ptr<Crypto::KDF> _kdf;
 

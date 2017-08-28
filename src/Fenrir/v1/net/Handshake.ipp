@@ -737,7 +737,8 @@ FENRIR_INLINE void Handshake::answer_s_keys (const Link_ID recv_from,
     lock.early_unlock();
 
     auto kdf = _load->get_shared<Crypto::KDF> (prev_data.r->_selected_kdf);
-    if (kdf == nullptr || !kdf->init (key))
+    auto user_kdf = _load->get_shared<Crypto::KDF> (prev_data.r->_selected_kdf);
+    if (kdf == nullptr || user_kdf == nullptr || !kdf->init (key))
         return;
 
     // all ok, build answer.
@@ -777,6 +778,9 @@ FENRIR_INLINE void Handshake::answer_s_keys (const Link_ID recv_from,
     hmac_read->set_key (tmp_key);
     kdf->get (6, context, tmp_key);
     if (!ecc_read->init (tmp_key))
+        return;
+    kdf->get (7, context, tmp_key);
+    if (!user_kdf->init (tmp_key))
         return;
 
     // TODO: GET STREAMS DATA
@@ -916,6 +920,7 @@ FENRIR_INLINE void Handshake::answer_s_keys (const Link_ID recv_from,
     std::get<state_client> (*pkt_it)._enc_write = std::move(enc_write);
     std::get<state_client> (*pkt_it)._hmac_write = std::move(hmac_write);
     std::get<state_client> (*pkt_it)._ecc_write = std::move(ecc_write);
+    std::get<state_client> (*pkt_it)._user_kdf = std::move(user_kdf);
     std::get<state_client> (*pkt_it)._client_key = nullptr;
     w_lock.early_unlock();
 
@@ -962,7 +967,8 @@ FENRIR_INLINE void Handshake::answer_c_auth (const Link_ID recv_from,
         return;
 
     auto kdf = _load->get_shared<Crypto::KDF> (srv->_kdf);
-    if (kdf == nullptr || !kdf->init (srv->_key))
+    auto user_kdf = _load->get_shared<Crypto::KDF> (srv->_kdf);
+    if (kdf == nullptr || user_kdf == nullptr || !kdf->init (srv->_key))
         return;
 
     constexpr std::array<char, 8> context {{ "FENRIR_" }};
@@ -983,6 +989,7 @@ FENRIR_INLINE void Handshake::answer_c_auth (const Link_ID recv_from,
     kdf->get (3, context, tmp_key);
     if (!ecc_read->init (tmp_key))
         return;
+
 
     // test autenticity & decrypt
     gsl::span<uint8_t> decrypted_data {data._enc_data};
@@ -1053,6 +1060,9 @@ FENRIR_INLINE void Handshake::answer_c_auth (const Link_ID recv_from,
         kdf->get (6, context, tmp_key);
         if (!ecc_write->init (tmp_key))
             return;
+        kdf->get (7, context, tmp_key);
+        if (!user_kdf->init (tmp_key))
+            return;
 
 
         auto conn = Connection::mk_shared (Role::Server,
@@ -1070,8 +1080,8 @@ FENRIR_INLINE void Handshake::answer_c_auth (const Link_ID recv_from,
                                             client_auth_data.r->_max_padding,
                                             srv_max_padding,
                                             enc_write, hmac_write, ecc_write,
-                                            enc_read,  hmac_read,  ecc_read
-                                            );
+                                            enc_read,  hmac_read,  ecc_read,
+                                            user_kdf);
         conn->add_Link_out (recv_from);
 
         if (_handler->add_connection (std::move(conn)) != Error::NONE)
@@ -1166,12 +1176,13 @@ FENRIR_INLINE void Handshake::parse_s_result (const Link_ID recv_from,
         return; // random packet. Don't answer.
     }
 
-    auto enc_read  = std::get<state_client> (*it)._enc_read;
-    auto hmac_read = std::get<state_client> (*it)._hmac_read;
-    auto ecc_read  = std::get<state_client> (*it)._ecc_read;
+    auto enc_read   = std::get<state_client> (*it)._enc_read;
+    auto hmac_read  = std::get<state_client> (*it)._hmac_read;
+    auto ecc_read   = std::get<state_client> (*it)._ecc_read;
     auto enc_write  = std::get<state_client> (*it)._enc_write;
     auto hmac_write = std::get<state_client> (*it)._hmac_write;
     auto ecc_write  = std::get<state_client> (*it)._ecc_write;
+    auto user_kdf   = std::get<state_client> (*it)._user_kdf;
 
     // save data for later, so we don't lock things too much
     Conn0_C_AUTH prev_data (std::get<state_client>(*it)._pkt->stream[0].data());
@@ -1243,7 +1254,8 @@ FENRIR_INLINE void Handshake::parse_s_result (const Link_ID recv_from,
                                         std::move(ecc_write),
                                         std::move(enc_read),
                                         std::move(hmac_read),
-                                        std::move(ecc_read)
+                                        std::move(ecc_read),
+                                        std::move(user_kdf)
                                         );
 
     if (conn == nullptr) {

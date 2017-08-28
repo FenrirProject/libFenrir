@@ -77,12 +77,13 @@ FENRIR_INLINE Connection::Connection (const Role role, const User_ID user,
                                         const Packet::Alignment_Byte write_al,
                                         const uint8_t max_read_padding,
                                         const uint8_t max_write_padding,
-                                  std::shared_ptr<Crypto::Encryption> enc_send,
-                                  std::shared_ptr<Crypto::Hmac> hmac_send,
-                                  std::shared_ptr<Recover::ECC> ecc_send,
-                                  std::shared_ptr<Crypto::Encryption> enc_recv,
-                                  std::shared_ptr<Crypto::Hmac> hmac_recv,
-                                  std::shared_ptr<Recover::ECC> ecc_recv)
+                                std::shared_ptr<Crypto::Encryption> enc_send,
+                                std::shared_ptr<Crypto::Hmac> hmac_send,
+                                std::shared_ptr<Recover::ECC> ecc_send,
+                                std::shared_ptr<Crypto::Encryption> enc_recv,
+                                std::shared_ptr<Crypto::Hmac> hmac_recv,
+                                std::shared_ptr<Recover::ECC> ecc_recv,
+                                std::shared_ptr<Crypto::KDF> user_kdf)
     : _read_connection_id (read), _write_connection_id (write),
                             _user_id (user),
                             _rel_read_control_stream (read_control_stream),
@@ -104,7 +105,8 @@ FENRIR_INLINE Connection::Connection (const Role role, const User_ID user,
                             _ecc_send (std::move(ecc_send)),
                             _enc_recv (std::move(enc_recv)),
                             _hmac_recv (std::move(hmac_recv)),
-                            _ecc_recv (std::move(ecc_recv))
+                            _ecc_recv (std::move(ecc_recv)),
+                            _user_kdf (std::move(user_kdf))
 {
     _max_write_padding = 8;
     auto rel_st_in = std::make_shared<Storage_Raw> ();

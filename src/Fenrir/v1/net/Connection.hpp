@@ -43,6 +43,14 @@ class Handler;
 namespace Event {
 class Loop;
 }
+namespace Crypto {
+class Encryption;
+class Hmac;
+class KDF;
+}
+namespace Recover {
+class ECC;
+}
 
 class FENRIR_LOCAL user_data {
 public:
@@ -170,6 +178,7 @@ private:
     std::shared_ptr<Crypto::Encryption> _enc_recv;
     std::shared_ptr<Crypto::Hmac> _hmac_recv;
     std::shared_ptr<Recover::ECC> _ecc_recv;
+    std::shared_ptr<Crypto::KDF> _user_kdf;
 
     Connection (const Role role, const User_ID user,
                                 Event::Loop *const loop,
@@ -187,7 +196,8 @@ private:
                                 std::shared_ptr<Recover::ECC> ecc_send,
                                 std::shared_ptr<Crypto::Encryption> enc_recv,
                                 std::shared_ptr<Crypto::Hmac> hmac_recv,
-                                std::shared_ptr<Recover::ECC> ecc_recv);
+                                std::shared_ptr<Recover::ECC> ecc_recv,
+                                std::shared_ptr<Crypto::KDF> user_kdf);
     void parse_rel_control();
     void parse_unrel_control();
     void parse_control (const std::vector<uint8_t> &data);
