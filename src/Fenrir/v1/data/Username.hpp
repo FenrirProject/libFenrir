@@ -53,6 +53,7 @@ public:
     // Not a string. NOT NULL-terminated.
     Username (const gsl::span<const uint8_t> raw)
     {
+        // see issue #1 (constant time)
         // check the index: no '@', '@' at first char, or domain of less
         // than 4 chars
 
@@ -104,6 +105,7 @@ public:
         { return user.size() != 0 && domain.size() > 4; }
     bool operator== (const Fenrir__v1::Impl::Username& user2) const
     {
+        // see issue #1 (constant time)
         return user.size() == user2.user.size() &&
                 domain.size() == user2.domain.size() &&
                 std::equal (user.begin(), user.end(), user2.user.begin()) &&
@@ -117,6 +119,7 @@ public:
     }
 
     bool is_anonymous() const {
+        // see issue #1 (constant time)
         std::array<uint8_t, 9> anon = {{ 'a','n','o','n','y','m','o','u','s' }};
         return anon.size() == user.size() &&
                             std::equal (user.begin(), user.end(), anon.begin());

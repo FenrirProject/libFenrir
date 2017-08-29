@@ -64,6 +64,12 @@ public:
         {}
     };
 
+    // see issue #1 (constant time)
+    // the DB should return data after the same time
+    // wether the user exists or not. This can be tricky for
+    // databases with lots of users, where finding the first is
+    // easy but you need to go through the whole list to return
+    // "non-existing".
     virtual struct auth_data get_auth (const Device_ID &device_id,
                                             const Service_ID &service,
                                             const Username &auth_user,

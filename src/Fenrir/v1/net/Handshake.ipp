@@ -46,6 +46,8 @@ constexpr uint16_t conn_init_minlen = pkt_init_minlen - PKT_MINLEN;
 } // empty namespace
 
 
+// TODO: check all against issue #1 (constant time)
+
 FENRIR_INLINE bool Handshake::add_auth (const Crypto::Auth::ID id)
 {
     Shared_Lock_Guard<Shared_Lock_Write> lock {Shared_Lock_NN{&_mtx_auths}};

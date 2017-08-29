@@ -72,6 +72,7 @@ public:
     Auth& operator= (Auth &&) = default;
     virtual ~Auth() {}
 
+    // see issue #1 (constant time) when implementing
     virtual Auth_Result authenticate (const Device_ID &dev_id,
                                     const Service_ID &service,
                                     const Username &auth_user,

@@ -33,6 +33,7 @@ struct FENRIR_LOCAL Token_t :
     using strong_typedef::strong_typedef;
     bool operator== (const Token_t &rhs) const
     {
+        // see issue #1 (constant time)
         size_t diff = 0;
         for (size_t idx = 0; idx < 32; ++idx) {
             if (static_cast<std::array<uint8_t, 32>> (*this)[idx] !=

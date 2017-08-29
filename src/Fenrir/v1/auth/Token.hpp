@@ -55,6 +55,7 @@ public:
         { return Auth::ID {1}; }
 };
 
+// see issue #1 (constant time)
 FENRIR_INLINE Auth_Result Token::authenticate (const Device_ID &dev_id,
                                         const Service_ID &service,
                                         const Username &auth_user,

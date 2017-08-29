@@ -33,6 +33,8 @@ struct FENRIR_LOCAL Service_ID :
     using strong_typedef::strong_typedef;
     bool operator== (const Service_ID &rhs) const
     {
+        // see issue #1
+        // try to make this parse the whole array instead of returning early
         size_t diff = 0;
         for (size_t idx = 0; idx < 16; ++idx) {
             if (static_cast<std::array<uint8_t, 16>> (*this)[idx] !=
@@ -45,15 +47,21 @@ struct FENRIR_LOCAL Service_ID :
 
     bool operator< (const Service_ID &rhs) const
     {
-        size_t diff = 0;
+        // see issue #1
+        // try to make this parse the whole array instead of returning early
+        ssize_t diff = 0;
         for (size_t idx = 0; idx < 16; ++idx) {
             if (static_cast<std::array<uint8_t, 16>> (*this)[idx] <
                             static_cast<std::array<uint8_t, 16>> (rhs)[idx]) {
-                if (diff == 0)
+                if (diff <= 0)
+                    --diff;
+            } else if (static_cast<std::array<uint8_t, 16>> (*this)[idx] >
+                            static_cast<std::array<uint8_t, 16>> (rhs)[idx]) {
+                if (diff >= 0)
                     ++diff;
             }
         }
-        return diff == 0;
+        return diff < 0;
     }
 };
 

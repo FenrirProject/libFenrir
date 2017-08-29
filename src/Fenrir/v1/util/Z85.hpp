@@ -33,6 +33,7 @@ namespace Fenrir__v1 {
 namespace Impl {
 
 // TODO: DEDUPLICATE this code
+// TODO: see issue #1 (constant time)
 
 FENRIR_LOCAL constexpr size_t z85_encoded_size (const size_t in);
 FENRIR_LOCAL constexpr size_t z85_encoded_size_no_header (const size_t in);
