@@ -24,6 +24,7 @@
 #include "Fenrir/v1/util/Shared_Lock.ipp"
 #include "Fenrir/v1/plugin/Loader.ipp"
 
+#include "Fenrir/v1/auth/Lattice.ipp"
 #include "Fenrir/v1/data/control/Control.ipp"
 #include "Fenrir/v1/data/Conn0.ipp"
 #include "Fenrir/v1/data/packet/Stream.ipp"

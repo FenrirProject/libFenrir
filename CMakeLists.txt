@@ -216,6 +216,8 @@ SET(SOURCES src/Fenrir/v1/wrapper/include_all.cpp)
 
 SET(HEADERS	src/Fenrir/v1/API/Report.hpp
             src/Fenrir/v1/auth/Auth.hpp
+            src/Fenrir/v1/auth/Lattice.hpp
+            src/Fenrir/v1/auth/Lattice.ipp
             src/Fenrir/v1/auth/Token.hpp
             src/Fenrir/v1/crypto/Crypto.hpp
             src/Fenrir/v1/crypto/Crypto_NULL.hpp
@@ -273,6 +275,7 @@ SET(HEADERS	src/Fenrir/v1/API/Report.hpp
             src/Fenrir/v1/resolve/DNSSEC.ipp
             src/Fenrir/v1/resolve/Resolver.hpp
             src/Fenrir/v1/service/Service.hpp
+            src/Fenrir/v1/service/Service_Info.hpp
             src/Fenrir/v1/service/Service_ID.hpp
             src/Fenrir/v1/util/hash.hpp
             src/Fenrir/v1/util/endian.hpp

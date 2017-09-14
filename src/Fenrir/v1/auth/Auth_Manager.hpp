@@ -20,46 +20,16 @@
 
 #pragma once
 
+#include "Fenrir/v1/libFenrir.hpp"
+#include "Fenrir/v1/data/Username.hpp"
+#include "Fenrir/v1/utils/hash.hpp"
 #include <memory>
 #include <mutex>
 #include <unordered_map>
 #include <vector>
-#include "../libFenrir.hpp"
-#include "Username.hpp"
-#include "../Utils/hash.hpp"
 
 namespace Fenrir {
 namespace Auth {
-
-class FENRIR_LOCAL Lattice_Node
-{
-public:
-	std::vector<uint8_t> name;
-	std::vector<std::weak_ptr<Lattice_Node>> parents;
-	std::vector<std::shared_ptr<Lattice_Node>> children;
-	uint8_t id;
-
-	Lattice_Node (uint8_t _id, const std::vector<uint8_t> &_name)
-		:name(_name), id(_id) {}
-
-	std::vector<uint8_t> serialize();
-};
-
-class FENRIR_LOCAL Lattice
-{
-public:
-	Lattice (const std::vector<uint8_t> &raw);
-
-	operator bool() const;		// check validity of parsed lattice
-	bool exists (uint8_t id);
-	bool includes (uint8_t parent, uint8_t child);
-	std::vector<uint8_t> serialize();
-private:
-	std::shared_ptr<Lattice_Node> top;
-
-	std::shared_ptr<Lattice_Node> find (std::shared_ptr<Lattice_Node> from,
-										uint8_t id, std::vector<uint8_t> &out);
-};
 
 class FENRIR_LOCAL Manager
 {
