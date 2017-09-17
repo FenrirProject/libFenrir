@@ -55,12 +55,16 @@ endif()
 #gnu options
 set(FENRIR_GNU_C_OPTIONS ${FENRIR_DETERMINISTIC} -std=c11 -ffast-math
             -Wno-unknown-pragmas -Wall -Wextra -pedantic -Wno-padded
-            -fstack-protector-all -fstrict-aliasing -fwrapv -fvisibility=hidden)
+            -fstack-protector-all -fstrict-aliasing -fwrapv -fvisibility=hidden
+            -Wduplicated-cond -Wduplicated-branches -Wlogical-op -Wrestrict
+            -Wnull-dereference -Wdouble-promotion -Wshadow -Wformat=2)
 set(FENRIR_GNU_CXX_OPTIONS ${FENRIR_DETERMINISTIC} -std=c++14 -ffast-math
             -fno-rtti -fno-exceptions -Wno-unknown-pragmas -Wall -Wextra
             -pedantic -Wno-padded -Wno-unknown-pragmas -Wno-weak-vtables
             -fstack-protector-all -fstrict-aliasing -fwrapv -fvisibility=hidden
-            -fvisibility-inlines-hidden )
+            -fvisibility-inlines-hidden
+            -Wduplicated-cond -Wduplicated-branches -Wlogical-op -Wrestrict
+            -Wnull-dereference -Wuseless-cast -Wdouble-promotion -Wshadow -Wformat=2)
 
 # GCC internal compiler errors with:
 # -fsanitize=undefined
@@ -79,10 +83,11 @@ set(FENRIR_GNU_CXX_RELWITHDEBINFO -g -Ofast -fwrapv -ftree-loop-distribution -fu
 
 # clang options
 set(FENRIR_CLANG_C_OPTIONS ${FENRIR_DETERMINISTIC} -std=c11 -ffast-math
-            -fno-math-errno -Wall -pedantic -Weverything -Wno-padded
+    -fno-math-errno -Wall -Wextra -pedantic -Weverything -Wno-padded
             -fstack-protector-all -fstrict-aliasing -Wformat -Wformat-security
             -Wno-disabled-macro-expansion -fvisibility=hidden
-            -fvisibility-inlines-hidden)
+            -fvisibility-inlines-hidden
+            -Wdouble-promotion -Wshadow -Wformat=2 -Wnull-dereference)
 set(FENRIR_CLANG_CXX_OPTIONS ${FENRIR_STDLIB_FLAG} ${FENRIR_DETERMINISTIC}
             -std=c++14 -Wno-c++14-extensions -fno-rtti -fno-exceptions
             -ffast-math -fno-math-errno -Wall -pedantic -Weverything
@@ -90,7 +95,8 @@ set(FENRIR_CLANG_CXX_OPTIONS ${FENRIR_STDLIB_FLAG} ${FENRIR_DETERMINISTIC}
             -Wno-unknown-pragmas -Wno-weak-vtables -fstack-protector-all
             -fstrict-aliasing -Wformat -Wformat-security -fvisibility=hidden
             -fvisibility-inlines-hidden
-            -Wno-documentation -Wno-documentation-unknown-command)
+            -Wno-documentation -Wno-documentation-unknown-command
+            -Wdouble-promotion -Wshadow -Wformat=2 -Wnull-dereference)
 
 set(FENRIR_CLANG_C_DEBUG   -O0 -g )
 set(FENRIR_CLANG_CXX_DEBUG -O0 -g )
