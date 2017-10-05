@@ -151,15 +151,15 @@ FENRIR_LOCAL constexpr bool z85_encode (const gsl::span<const uint8_t> in,
                                     sizeof(tmp) : static_cast<size_t> (runs);
         memcpy (&tmp, p, len);
         tmp = h_to_l<uint32_t> (tmp);
-        auto idx = static_cast<uint32_t> ((tmp / pow (85, 4))) % 85;
+        auto idx = (tmp / pow (85, 4)) % 85;
         out[out_idx++] = (enc [static_cast<size_t> (idx)]);
-        idx = static_cast<uint32_t> ((tmp / pow (85, 3))) % 85;
+        idx = (tmp / pow (85, 3)) % 85;
         out[out_idx++] = (enc [static_cast<size_t> (idx)]);
-        idx = static_cast<uint32_t> ((tmp / pow (85, 2))) % 85;
+        idx = (tmp / pow (85, 2)) % 85;
         out[out_idx++] = (enc [static_cast<size_t> (idx)]);
-        idx = static_cast<uint32_t> ((tmp / 85)) % 85;
+        idx = (tmp / 85) % 85;
         out[out_idx++] = (enc [static_cast<size_t> (idx)]);
-        idx = static_cast<uint32_t> (tmp) % 85;
+        idx = tmp % 85;
         out[out_idx++] = (enc [static_cast<size_t> (idx)]);
     }
 
@@ -185,15 +185,15 @@ FENRIR_LOCAL constexpr bool z85_encode_no_header (
                                 sizeof(tmp) : static_cast<size_t> (runs);
         memcpy (&tmp, p, len);
         tmp = h_to_l<uint32_t> (tmp);
-        auto idx = static_cast<uint32_t> ((tmp / pow (85, 4))) % 85;
+        auto idx = (tmp / pow (85, 4)) % 85;
         out[out_idx++] = (enc [static_cast<size_t> (idx)]);
-        idx = static_cast<uint32_t> ((tmp / pow (85, 3))) % 85;
+        idx = (tmp / pow (85, 3)) % 85;
         out[out_idx++] = (enc [static_cast<size_t> (idx)]);
-        idx = static_cast<uint32_t> ((tmp / pow (85, 2))) % 85;
+        idx = (tmp / pow (85, 2)) % 85;
         out[out_idx++] = (enc [static_cast<size_t> (idx)]);
-        idx = static_cast<uint32_t> ((tmp / 85)) % 85;
+        idx = (tmp / 85) % 85;
         out[out_idx++] = (enc [static_cast<size_t> (idx)]);
-        idx = static_cast<uint32_t> (tmp) % 85;
+        idx = tmp % 85;
         out[out_idx++] = (enc [static_cast<size_t> (idx)]);
     }
 
