@@ -40,8 +40,9 @@ struct FENRIR_LOCAL Stream_ID : type_safe::strong_typedef<Stream_ID, uint16_t>,
                 type_safe::strong_typedef_op::relational_comparison<Stream_ID>
     { using strong_typedef::strong_typedef; };
 
-struct FENRIR_LOCAL Stream_PRIO : type_safe::strong_typedef<Stream_ID, uint8_t>,
-                    type_safe::strong_typedef_op::equality_comparison<Stream_ID>
+struct FENRIR_LOCAL Stream_PRIO :
+                type_safe::strong_typedef<Stream_PRIO, uint8_t>,
+                type_safe::strong_typedef_op::equality_comparison<Stream_PRIO>
     { using strong_typedef::strong_typedef; };
 
 struct FENRIR_LOCAL Counter : type_safe::strong_typedef<Counter, uint32_t>,

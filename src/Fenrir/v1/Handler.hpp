@@ -27,6 +27,7 @@
 #include "Fenrir/v1/net/Handshake.hpp"
 #include "Fenrir/v1/plugin/Loader.hpp"
 #include "Fenrir/v1/service/Service_ID.hpp"
+#include "Fenrir/v1/service/Service_Info.hpp"
 #include "Fenrir/v1/util/Shared_Lock.hpp"
 #include <map>
 #include <memory>
@@ -76,6 +77,39 @@ public:
     void connect (const std::vector<uint8_t> &dest, const Service_ID &service);
     std::unique_ptr<Report::Base> get_report();
 private:
+    struct FENRIR_LOCAL Vhost_Service :
+                type_safe::strong_typedef<Vhost_Service,
+                                std::pair<Service_ID, std::vector<uint8_t>>>,
+                type_safe::strong_typedef_op::equality_comparison<Vhost_Service>
+    {
+        using strong_typedef::strong_typedef;
+        bool operator< (const Vhost_Service &rhs) const
+        {
+            // see issue #1
+            // try to make this parse the whole pair instead of returning early
+            // TODO: this is clumsy. better ides to avoid branching?
+            const auto *a = reinterpret_cast<const std::pair<
+                                    Service_ID, std::vector<uint8_t>>*> (this);
+            const auto *b = reinterpret_cast<const std::pair<
+                                    Service_ID, std::vector<uint8_t>>*> (&rhs);
+            int32_t x = 0;
+            if (a->first < b->first) {
+                x -= 10;
+            } else {
+                x += 10;
+            }
+            // FIXME: issue #1: not constant time, and try to avoid branching
+            // we don't reall car wht the ordering is, as long as there
+            // actually is one
+            if (a->second < b->second) {
+                x -= 5;
+            } else {
+                x += 5;
+            }
+            return x < 0;
+        }
+    };
+
     Shared_Lock _conn_lock, _sock_lock, _srv_lock, _res_lock;
     std::mutex _rep_lock;
     Event::Loop _loop;
@@ -85,7 +119,8 @@ private:
     std::shared_ptr<Rate::Rate> _rate;
     std::vector<std::shared_ptr<Resolve::Resolver>> _resolvers;
     std::map<Conn_ID, std::shared_ptr<Connection>> _connections;
-    std::vector<std::pair<Service_ID, std::shared_ptr<Connection>>> _services;
+    std::vector<std::pair<Vhost_Service, Service_Info>> _service_info;
+    std::vector<std::pair<Vhost_Service, std::shared_ptr<Connection>>>_services;
     std::vector<std::pair<Link_ID, std::shared_ptr<Socket>>> _sockets;
     std::deque<std::unique_ptr<Report::Base>> _user_reports;
     Handshake _handshakes;

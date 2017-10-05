@@ -28,6 +28,7 @@
 #include <algorithm>
 #include <atomic>
 #include <memory>
+#include <mutex>
 #include <type_safe/strong_typedef.hpp>
 #include <vector>
 #include <tuple>
@@ -39,7 +40,7 @@ namespace Impl {
 class FENRIR_LOCAL Service_Info
 {
 public:
-    using stream_info = std::vector<Storage_t, Stream_PRIO>;
+    using stream_info = std::vector<std::tuple<Storage_t, Stream_PRIO>>;
 
     Service_Info()
         : _info (nullptr)
@@ -50,32 +51,36 @@ public:
     Service_Info& operator= (Service_Info &&) = default;
     ~Service_Info() = default;
 
-    stream_info get_streams (const Service_ID &service) const
+    stream_info get_streams (const Service_ID &service)
     {
-        auto p = _info.load();
+        std::lock_guard<std::mutex> lock (_mtx);
+        FENRIR_UNUSED (lock);
+        auto p = _info;
         if (p == nullptr)
             return stream_info{};
         auto res = std::lower_bound (p->begin(), p->end(), service,
                 [] (const auto it, const Service_ID &id)
                 {
                     return std::get<Service_ID> (it) < id;
-                }
-        if (std::get<Service_ID> (*res) == service))
+                });
+        if (std::get<Service_ID> (*res) == service)
                 return std::get<stream_info> (*res);
         return stream_info{};
     }
 
-    Lattice get_lattice (const Service_ID &service) const
+    Lattice get_lattice (const Service_ID &service)
     {
-        auto p = _info.load();
+        std::lock_guard<std::mutex> lock (_mtx);
+        FENRIR_UNUSED (lock);
+        auto p = _info;
         if (p == nullptr)
             return Lattice{};
         auto res = std::lower_bound (p->begin(), p->end(), service,
                 [] (const auto it, const Service_ID &id)
                 {
                     return std::get<Service_ID> (it) < id;
-                }
-        if (std::get<Service_ID> (*res) == service))
+                });
+        if (std::get<Service_ID> (*res) == service)
                 return std::get<Lattice> (*res);
         return Lattice{};
     }
@@ -83,28 +88,34 @@ public:
     bool add_service (const Service_ID id, stream_info &streams,
                                                             Lattice &lattice)
     {
-        std::shared_ptr<std::vector<std::tuple<Service_ID, stream_info>>>
-                                                                current, copy;
-        do {
-            current = _info.load();
+        while (true) {
+            std::shared_ptr<std::vector<std::tuple<
+                            Service_ID, stream_info, Lattice>>> current, copy;
+            current = _info;
             size_t cur_size = 0;
             if (current != nullptr)
                 cur_size = current->size();
             copy = std::make_shared<std::vector<
-                                        std::tuple<Service_ID, stream_info>>> (
+                                std::tuple<Service_ID, stream_info, Lattice>>> (
                                                                 cur_size + 1);
             for (size_t idx = 0; idx < cur_size; ++idx) {
                 copy->push_back ((*current)[idx]);
             }
             copy->emplace_back (id, streams, lattice);
-        } while (!_info.compare_exchange_strong (current, copy));
+            std::lock_guard<std::mutex> lock (_mtx);
+            FENRIR_UNUSED (lock);
+            if (_info.get() == copy.get()) {
+                _info = current;
+                break;
+            }
+        }
         return true;
     }
 
 private:
-    // TODO: test thread safety
-    std::atomic<std::shared_ptr<std::vector<
-                    std::tuple<Service_ID, stream_info, Lattice>>>> _info;
+    std::mutex _mtx;
+    std::shared_ptr<std::vector<
+                        std::tuple<Service_ID, stream_info, Lattice>>> _info;
 };
 
 } // namespace Impl
