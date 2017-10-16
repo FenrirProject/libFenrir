@@ -34,6 +34,8 @@ constexpr std::array<const uint8_t, 6> lattice_a_BOTTOM {{
                                                     'b','o','t','t','o','m' }};
 }
 
+constexpr Lattice_Node::ID Lattice::TOP, Lattice::BOTTOM;
+
 FENRIR_INLINE Lattice::Lattice()
 {
     auto bottom = std::make_shared<Lattice_Node> (BOTTOM,
@@ -59,7 +61,7 @@ FENRIR_INLINE Lattice::Lattice (const gsl::span<const uint8_t> raw)
             _top = nullptr;
             return;
         }
-        const uint8_t node_id = raw[idx++];
+        const Lattice_Node::ID node_id {raw[idx++]};
         if (node_id == TOP || node_id == BOTTOM) {
             _top = nullptr;
             return;
@@ -76,9 +78,9 @@ FENRIR_INLINE Lattice::Lattice (const gsl::span<const uint8_t> raw)
             _top = nullptr;
             return;
         }
-        std::vector<uint8_t> parents (parents_len);
+        std::vector<Lattice_Node::ID> parents (parents_len);
         while (parents_len > 0) {
-            const uint8_t parent_id = raw[idx];
+            const Lattice_Node::ID parent_id {raw[idx]};
             if (parent_id == BOTTOM) {
                 _top = nullptr;
                 return;
@@ -96,15 +98,15 @@ FENRIR_INLINE Lattice::Lattice (const gsl::span<const uint8_t> raw)
 FENRIR_INLINE Lattice::operator bool() const
     { return _top != nullptr; }
 
-FENRIR_INLINE bool Lattice::exists (const uint8_t id) const
+FENRIR_INLINE bool Lattice::exists (const Lattice_Node::ID id) const
 {
     if (find (_top, id) == nullptr)
         return false;
     return true;
 }
 
-FENRIR_INLINE bool Lattice::includes (const uint8_t parent,
-                                                    const uint8_t child) const
+FENRIR_INLINE bool Lattice::includes (const Lattice_Node::ID parent,
+                                            const Lattice_Node::ID child) const
 {
     auto node = find (_top, parent);
     if (find (node, child) == nullptr)
@@ -112,9 +114,9 @@ FENRIR_INLINE bool Lattice::includes (const uint8_t parent,
     return true;
 }
 
-FENRIR_INLINE bool Lattice::add_node (const uint8_t id,
-                                            const gsl::span<const uint8_t> name,
-                                            const std::vector<uint8_t> parents)
+FENRIR_INLINE bool Lattice::add_node (const Lattice_Node::ID id,
+                                    const gsl::span<const uint8_t> name,
+                                    const std::vector<Lattice_Node::ID> parents)
 {
     // limit name to 30 chars.
     if (name.size() > MAX_NAME)
@@ -123,7 +125,10 @@ FENRIR_INLINE bool Lattice::add_node (const uint8_t id,
         return false; // already present
     std::vector<std::shared_ptr<Lattice_Node>> sh_parents;
     sh_parents.reserve (parents.size());
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wrange-loop-analysis"
     for (const auto p : parents) {
+#pragma clang diagnostic pop
         if (p == BOTTOM)
             return false;
         auto tmp =  find (_top, p);
@@ -183,7 +188,7 @@ FENRIR_INLINE bool Lattice::write (gsl::span<uint8_t> out) const
         queue.pop_front();
         for (auto child : x->_children)
             queue.push_back (child);
-        *it = x->_id;
+        *it = static_cast<uint8_t> (x->_id);
         *it = static_cast<uint8_t> (x->_name.size());
         for (const uint8_t el : x->_name)
             *(it++) = el;
@@ -191,7 +196,7 @@ FENRIR_INLINE bool Lattice::write (gsl::span<uint8_t> out) const
         for (auto weak_p : x->_parents) {
             auto sh_p = weak_p.lock();
             assert (sh_p != nullptr && "Lattice_Write:: parent nullptr");
-            *(it++) = sh_p->_id;
+            *(it++) = static_cast<uint8_t> (sh_p->_id);
         }
     }
     return true;
@@ -199,7 +204,7 @@ FENRIR_INLINE bool Lattice::write (gsl::span<uint8_t> out) const
 
 FENRIR_INLINE std::shared_ptr<Lattice_Node> Lattice::find (
                                     const std::shared_ptr<Lattice_Node> from,
-                                                        const uint8_t id) const
+                                                const Lattice_Node::ID id) const
 {
     // BFS
     std::deque<std::shared_ptr<Lattice_Node>> queue;

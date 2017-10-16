@@ -510,6 +510,7 @@ Conn0_Auth_Data::Conn0_Auth_Data (gsl::span<uint8_t> raw_pkt,
                                         const uint8_t padding,
                                         const Packet::Alignment_Flag alignment,
                                         const Crypto::Auth::ID selected_auth,
+                                        const Lattice_Node::ID lattice_node,
                                         const Stream_ID control_stream,
                                         const gsl::span<const uint8_t>auth_data,
                                         const uint16_t streams)
@@ -552,6 +553,7 @@ Conn0_Auth_Data::Conn0_Auth_Data (gsl::span<uint8_t> raw_pkt,
     w->_alignment = alignment;
     w->_control_stream = control_stream;
     w->_selected_auth = selected_auth;
+    w->_lattice_node = lattice_node;
     auth_username (_auth_username);
     service_username (_service_username);
     memcpy (_auth_data.data(), auth_data.data(),

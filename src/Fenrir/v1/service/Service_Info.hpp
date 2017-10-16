@@ -36,88 +36,24 @@
 namespace Fenrir__v1 {
 namespace Impl {
 
-// lockless, thread safe.
-class FENRIR_LOCAL Service_Info
-{
-public:
-    using stream_info = std::vector<std::tuple<Storage_t, Stream_PRIO>>;
+// a service is identified by its domain and its service_ID
+// each service can create automatically a number of streams with different
+// priorities. Different instances of the same service mught be able to handle
+// a different number of streams, so this is a per-service setting.
+//
+// The same applies to the Lattices.
+// Naively we can think that a Service_ID and a Lattice are interdependent,
+// but protocols evolve, and we might have two services with slightly different
+// lattices.
+// This also implies that there will be a versioning / compatibility list
+// between lattices. Nodes in the lattices are identified by a 8-bit ID, so
+// extending an existing lattice while preserving the IDs should not be
+// a problem. (TODO: versioning/compatiblity of lattices
+// (hint: wither major/minor for compatibility or something tree-like)
 
-    Service_Info()
-        : _info (nullptr)
-        {}
-    Service_Info (const Service_Info&) = delete;
-    Service_Info& operator= (const Service_Info&) = delete;
-    Service_Info (Service_Info &&) = default;
-    Service_Info& operator= (Service_Info &&) = default;
-    ~Service_Info() = default;
 
-    stream_info get_streams (const Service_ID &service)
-    {
-        std::lock_guard<std::mutex> lock (_mtx);
-        FENRIR_UNUSED (lock);
-        auto p = _info;
-        if (p == nullptr)
-            return stream_info{};
-        auto res = std::lower_bound (p->begin(), p->end(), service,
-                [] (const auto it, const Service_ID &id)
-                {
-                    return std::get<Service_ID> (it) < id;
-                });
-        if (std::get<Service_ID> (*res) == service)
-                return std::get<stream_info> (*res);
-        return stream_info{};
-    }
-
-    Lattice get_lattice (const Service_ID &service)
-    {
-        std::lock_guard<std::mutex> lock (_mtx);
-        FENRIR_UNUSED (lock);
-        auto p = _info;
-        if (p == nullptr)
-            return Lattice{};
-        auto res = std::lower_bound (p->begin(), p->end(), service,
-                [] (const auto it, const Service_ID &id)
-                {
-                    return std::get<Service_ID> (it) < id;
-                });
-        if (std::get<Service_ID> (*res) == service)
-                return std::get<Lattice> (*res);
-        return Lattice{};
-    }
-
-    bool add_service (const Service_ID id, stream_info &streams,
-                                                            Lattice &lattice)
-    {
-        while (true) {
-            std::shared_ptr<std::vector<std::tuple<
-                            Service_ID, stream_info, Lattice>>> current, copy;
-            current = _info;
-            size_t cur_size = 0;
-            if (current != nullptr)
-                cur_size = current->size();
-            copy = std::make_shared<std::vector<
-                                std::tuple<Service_ID, stream_info, Lattice>>> (
-                                                                cur_size + 1);
-            for (size_t idx = 0; idx < cur_size; ++idx) {
-                copy->push_back ((*current)[idx]);
-            }
-            copy->emplace_back (id, streams, lattice);
-            std::lock_guard<std::mutex> lock (_mtx);
-            FENRIR_UNUSED (lock);
-            if (_info.get() == copy.get()) {
-                _info = current;
-                break;
-            }
-        }
-        return true;
-    }
-
-private:
-    std::mutex _mtx;
-    std::shared_ptr<std::vector<
-                        std::tuple<Service_ID, stream_info, Lattice>>> _info;
-};
+using stream_info = std::vector<std::tuple<Storage_t, Stream_PRIO>>;
+using Service_Info = std::tuple<stream_info, std::shared_ptr<Lattice>>;
 
 } // namespace Impl
 } // namespace Fenrir__v1
-

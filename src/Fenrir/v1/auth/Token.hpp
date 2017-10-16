@@ -20,13 +20,14 @@
 
 #pragma once
 
+#include "Fenrir/v1/auth/Auth.hpp"
+#include "Fenrir/v1/auth/Lattice.hpp"
+#include "Fenrir/v1/common.hpp"
+#include "Fenrir/v1/data/Username.hpp"
+#include "Fenrir/v1/db/Db.hpp"
+#include "Fenrir/v1/plugin/Lib.hpp"
 #include <memory>
 #include <vector>
-#include "Fenrir/v1/auth/Auth.hpp"
-#include "Fenrir/v1/db/Db.hpp"
-#include "Fenrir/v1/data/Username.hpp"
-#include "Fenrir/v1/plugin/Lib.hpp"
-#include "Fenrir/v1/common.hpp"
 
 namespace Fenrir__v1 {
 namespace Impl {
@@ -42,47 +43,20 @@ public:
     Token& operator= (const Token&) = default;
     Token (Token &&) = default;
     Token& operator= (Token &&) = default;
-    ~Token() = default;
+    ~Token() override = default;
     void parse_event (std::shared_ptr<Event::Plugin_Timer> ev) override
         { FENRIR_UNUSED (ev); }
 
     Auth_Result authenticate (const Device_ID &dev_id,
                               const Service_ID &service,
+                              const std::shared_ptr<Lattice> lattice,
+                              const Lattice_Node::ID lattice_node,
                               const Username &auth_user,
                               const Username &service_user,
                               const gsl::span<uint8_t> data, Db *db) override;
     Auth::ID id() const override
         { return Auth::ID {1}; }
 };
-
-// see issue #1 (constant time)
-FENRIR_INLINE Auth_Result Token::authenticate (const Device_ID &dev_id,
-                                        const Service_ID &service,
-                                        const Username &auth_user,
-                                        const Username &service_user,
-                                        const gsl::span<uint8_t> data, Db *db)
-{
-    auto db_result = db->get_auth (dev_id, service, auth_user, service_user,
-                                                                        id());
-
-    Auth_Result ret;
-    if (auth_user.is_anonymous() && service_user.is_anonymous()) {
-        ret._failed = false;
-        return ret;
-    }
-
-    // TODO: XORed, OTP version.
-
-    if (data.size() != sizeof(Token_t) || db_result._user_id == User_ID{0})
-        return ret;
-    const Token_t *t_ptr = reinterpret_cast<const Token_t*> (data.data());
-    if (db_result._token == *t_ptr) {
-        ret._user_id = db_result._user_id;
-        ret._anonymous = false;
-        ret._failed = false;
-    }
-    return ret;
-}
 
 } // namespace Auth
 } // namespace Impl

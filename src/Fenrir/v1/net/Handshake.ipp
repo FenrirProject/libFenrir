@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include "Fenrir/v1/auth/Lattice.hpp"
 #include "Fenrir/v1/common.hpp"
 #include "Fenrir/v1/util/Shared_Lock.ipp"
 #include "Fenrir/v1/plugin/Loader.ipp"
@@ -27,6 +28,7 @@
 #include "Fenrir/v1/net/Handshake.hpp"
 #include "Fenrir/v1/net/Connection.hpp"
 #include "Fenrir/v1/data/Conn0.hpp"
+#include "Fenrir/v1/data/Username.hpp"
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -870,6 +872,7 @@ FENRIR_INLINE void Handshake::answer_s_keys (const Link_ID recv_from,
                                         _rnd->uniform<uint8_t> (0, 7), // TODO: more random?
                                         Packet::Alignment_Flag::UINT8,
                                         Crypto::Auth::ID {1}, // FIXME: generalize
+                                        Lattice::TOP, // FIXME: generalize
                                         Stream_ID {_rnd->uniform<uint16_t>()},
                                         test_token,
                                         streams_num);
@@ -1014,7 +1017,6 @@ FENRIR_INLINE void Handshake::answer_c_auth (const Link_ID recv_from,
         return;
     }
 
-
     Shared_Lock_Guard<Shared_Lock_Read> readlock {Shared_Lock_NN{&_mtx_auths}};
     auto auth_it = std::lower_bound (auths.begin(), auths.end(),
                                     client_auth_data.r->_selected_auth,
@@ -1029,11 +1031,15 @@ FENRIR_INLINE void Handshake::answer_c_auth (const Link_ID recv_from,
     Username client_service_user { client_auth_data._service_username };
     if (!client_auth_user || !client_service_user)
         return;
+    auto sh_lattice = _handler->search_lattice (client_auth_data.r->_service,
+                                                    client_service_user.domain);
     auto auth_res = auth->authenticate (client_auth_data.r->_dev_id,
-                                              client_auth_data.r->_service,
-                                              client_auth_user,
-                                              client_service_user,
-                                              client_auth_data._auth_data, _db);
+                                            client_auth_data.r->_service,
+                                            std::move(sh_lattice),
+                                            client_auth_data.r->_lattice_node,
+                                            client_auth_user,
+                                            client_service_user,
+                                            client_auth_data._auth_data, _db);
 
     const Stream_ID srv_control_stream {_rnd->uniform<uint16_t>()};
     const Counter control_stream_start {_rnd->uniform<uint32_t> (0,

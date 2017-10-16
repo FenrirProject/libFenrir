@@ -23,10 +23,12 @@
 #include "Fenrir/v1/common.hpp"
 #include <gsl/span>
 #include <memory>
+#include <type_safe/strong_typedef.hpp>
 #include <vector>
 
 namespace Fenrir__v1 {
 namespace Impl {
+
 
 class FENRIR_LOCAL Lattice_Node
 {
@@ -34,10 +36,15 @@ public:
     std::vector<uint8_t> _name;
     std::vector<std::weak_ptr<Lattice_Node>> _parents;
     std::vector<std::shared_ptr<Lattice_Node>> _children;
-    uint8_t _id;
+    struct FENRIR_LOCAL ID :
+                    type_safe::strong_typedef<ID, uint8_t>,
+                    type_safe::strong_typedef_op::equality_comparison<ID>,
+                    type_safe::strong_typedef_op::relational_comparison<ID>
+        { using strong_typedef::strong_typedef; };
+    ID _id;
 
     Lattice_Node() = delete;
-    Lattice_Node (const uint8_t id, const gsl::span<const uint8_t> name)
+    Lattice_Node (const ID id, const gsl::span<const uint8_t> name)
         :_id (id)
     {
         _name.reserve (static_cast<size_t> (name.size()));
@@ -54,6 +61,7 @@ public:
 class FENRIR_LOCAL Lattice
 {
 public:
+    static const constexpr Lattice_Node::ID TOP {0x00}, BOTTOM {0xFF};
     // id 0 is reserved (top), id 255 is reserved (bottom)
     Lattice ();
     Lattice (const gsl::span<const uint8_t> raw);
@@ -64,10 +72,12 @@ public:
     ~Lattice() = default;
 
     operator bool() const;
-    bool exists (const uint8_t id) const;
-    bool includes (const uint8_t parent, const uint8_t child) const;
-    bool add_node (const uint8_t id, const gsl::span<const uint8_t> name,
-                                    const std::vector<uint8_t> parents);
+    bool exists (const Lattice_Node::ID id) const;
+    bool includes (const Lattice_Node::ID parent,
+                                            const Lattice_Node::ID child) const;
+    bool add_node (const Lattice_Node::ID id,
+                                const gsl::span<const uint8_t> name,
+                                const std::vector<Lattice_Node::ID> parents);
     size_t raw_size() const;
     // output format:
     // 1b  Node ID
@@ -76,12 +86,11 @@ public:
     bool write (gsl::span<uint8_t> out) const;
 
 private:
-    static constexpr uint8_t TOP = 0x00, BOTTOM = 0xFF;
     static constexpr uint8_t MAX_NAME = 30;
     std::shared_ptr<Lattice_Node> _top;
 
     std::shared_ptr<Lattice_Node> find(const std::shared_ptr<Lattice_Node> from,
-                                                        const uint8_t id) const;
+                                            const Lattice_Node::ID id) const;
 };
 
 

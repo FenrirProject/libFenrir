@@ -22,6 +22,7 @@
 
 #include "Fenrir/v1/common.hpp"
 #include "Fenrir/v1/auth/Auth.hpp"
+#include "Fenrir/v1/auth/Lattice.hpp"
 #include "Fenrir/v1/crypto/Crypto.hpp"
 #include "Fenrir/v1/data/Conn0_Type.hpp"
 #include "Fenrir/v1/data/Device_ID.hpp"
@@ -312,6 +313,7 @@ public:
         Packet::Alignment_Flag _alignment;
         Stream_ID _control_stream;
         Crypto::Auth::ID _selected_auth;
+        Lattice_Node::ID _lattice_node;
     };
     struct stream_info {
         Stream_ID _id;
@@ -336,6 +338,7 @@ public:
                                         const uint8_t padding,
                                         const Packet::Alignment_Flag alignment,
                                         const Crypto::Auth::ID selected_auth,
+                                        const Lattice_Node::ID lattice_node,
                                         const Stream_ID control_stream,
                                         const gsl::span<const uint8_t>auth_data,
                                         const uint16_t streams);

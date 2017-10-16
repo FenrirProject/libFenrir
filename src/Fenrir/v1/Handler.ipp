@@ -374,5 +374,26 @@ FENRIR_INLINE void Handler::plg_ev (std::shared_ptr<Event::Plugin_Timer> ev)
     return plugin->parse_event (std::move(ev));
 }
 
+FENRIR_INLINE std::shared_ptr<Lattice> Handler::search_lattice (
+                                            const Service_ID service,
+                                            const std::vector<uint8_t> &vhost)
+{
+    Shared_Lock_Guard<Shared_Lock_Read> rlock (Shared_Lock_NN{&_service_lock});
+    // FIXME: ticket #1 avoid enumeration of vhost/services
+    for (const auto &vhost_info : _service_info) {
+        const auto vhost_s = std::get<Vhost_Service> (vhost_info);
+        if (vhost != std::get<std::vector<uint8_t>> (
+                    static_cast<std::pair<Service_ID, std::vector<uint8_t>>> (
+                                                                    vhost_s))) {
+            continue;
+        }
+        if (service == std::get<Service_ID> (static_cast<const
+                        std::pair<Service_ID, std::vector<uint8_t>>>(vhost_s))){
+            return std::get<std::shared_ptr<Lattice>> (
+                                        std::get<Service_Info> (vhost_info));
+        }
+    }
+}
+
 } // namespace Impl
 } // namespace Fenrir__v1

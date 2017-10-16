@@ -21,6 +21,7 @@
 #pragma once
 
 #include <vector>
+#include "Fenrir/v1/auth/Lattice.hpp"
 #include "Fenrir/v1/common.hpp"
 #include "Fenrir/v1/data/Device_ID.hpp"
 #include "Fenrir/v1/data/Username.hpp"
@@ -42,7 +43,8 @@ class FENRIR_LOCAL Auth_Result
 {
 public:
     Auth_Result()
-        : _user_id {0}, _anonymous (true), _failed (true) {}
+        : _user_id {0}, _lattice_node (Lattice::BOTTOM),
+          _anonymous (true), _failed (true) {}
 
     Auth_Result (const Auth_Result&) = default;
     Auth_Result& operator= (const Auth_Result&) = default;
@@ -51,6 +53,7 @@ public:
     ~Auth_Result() = default;
 
     User_ID _user_id;
+    Lattice_Node::ID _lattice_node;
     bool _anonymous, _failed;
 };
 
@@ -75,6 +78,8 @@ public:
     // see issue #1 (constant time) when implementing
     virtual Auth_Result authenticate (const Device_ID &dev_id,
                                     const Service_ID &service,
+                                    const std::shared_ptr<Lattice> lattice,
+                                    const Lattice_Node::ID lattice_node,
                                     const Username &auth_user,
                                     const Username &service_user,
                                     const gsl::span<uint8_t> data, Db *db) = 0;

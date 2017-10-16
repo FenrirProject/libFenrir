@@ -219,6 +219,7 @@ SET(HEADERS	src/Fenrir/v1/API/Report.hpp
             src/Fenrir/v1/auth/Lattice.hpp
             src/Fenrir/v1/auth/Lattice.ipp
             src/Fenrir/v1/auth/Token.hpp
+            src/Fenrir/v1/auth/Token.ipp
             src/Fenrir/v1/crypto/Crypto.hpp
             src/Fenrir/v1/crypto/Crypto_NULL.hpp
             src/Fenrir/v1/crypto/Sodium.hpp

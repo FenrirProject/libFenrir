@@ -76,7 +76,10 @@ public:
     Conn_ID get_next_free (const Conn_ID id);
     void connect (const std::vector<uint8_t> &dest, const Service_ID &service);
     std::unique_ptr<Report::Base> get_report();
+    std::shared_ptr<Lattice> search_lattice (const Service_ID service,
+                                            const std::vector<uint8_t> &vhost);
 private:
+    // vhost: service_id + domain
     struct FENRIR_LOCAL Vhost_Service :
                 type_safe::strong_typedef<Vhost_Service,
                                 std::pair<Service_ID, std::vector<uint8_t>>>,
@@ -108,9 +111,9 @@ private:
             }
             return x < 0;
         }
-    };
+    };;
 
-    Shared_Lock _conn_lock, _sock_lock, _srv_lock, _res_lock;
+    Shared_Lock _conn_lock, _sock_lock, _srv_lock, _res_lock, _service_lock;
     std::mutex _rep_lock;
     Event::Loop _loop;
     Random _rnd;
